@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaPipe 3D Pose Tracking for Physiotherapy</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            justify-content: center; /* Center items when wrapping */
+        }
+
+        .video-section, .threejs-section {
+            flex: 1;
+            min-width: 320px; /* Minimum width for sections */
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3; /* Maintain aspect ratio for video/canvas */
+        }
+
+        #input_video {
+            width: 100%;
+            height: 100%; /* Fill container */
+            display: block;
+            object-fit: cover; /* Cover the area, cropping if necessary */
+        }
+
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%; /* Fill container */
+        }
+
+        #threejs-container {
+            width: 100%;
+            height: 500px; /* Fixed height for 3D view */
+            background: #222;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center; /* Center buttons */
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+            flex-shrink: 0; /* Prevent buttons from shrinking */
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .info-panel, .gesture-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #333;
+            border-radius: 10px;
+        }
+
+        .pose-data {
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .status {
+            color: #4CAF50;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .warning {
+            color: #ff9800;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+        }
+
+        .recording-indicator {
+            color: #ff4444;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .video-section, .threejs-section {
+                width: 100%;
+                max-width: 640px; /* Limit width even in column layout */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>MediaPipe 3D Pose Tracking for Physiotherapy</h1>
+
+    <div class="container">
+        <div class="video-section">
+            <div class="video-container">
+                <video id="input_video" playsinline></video>
+                <canvas id="output_canvas"></canvas>
+            </div>
+
+            <div class="controls">
+                <button id="start-btn">Start Camera</button>
+                <button id="stop-btn" disabled>Stop Camera</button>
+                <button id="record-pose-btn" disabled>Record Current Pose</button>
+                <button id="clear-poses-btn">Clear Recorded Poses</button>
+                <button id="toggle-detection-btn" disabled>Start Detection</button>
+            </div>
+
+            <div class="info-panel">
+                <div id="status" class="status">Ready to start</div>
+                <div id="pose-info">
+                    <strong>Detected Joints:</strong> <span id="joint-count">0</span>/33
+                </div>
+                <div id="recording-status"></div>
+                <div id="detection-status" style="font-weight: bold; color: #666;"></div>
+            </div>
+        </div>
+
+        <div class="threejs-section">
+            <h2>3D Skeleton View</h2>
+            <div id="threejs-container"></div>
+
+            <div class="gesture-section">
+                <h2>Gesture Training Data</h2>
+                <div>Recorded poses: <span id="pose-count">0</span></div>
+                <div class="pose-data" id="pose-data">
+                    No poses recorded yet. Click "Record Current Pose" to start collecting training data.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let pose, videoElement, scene, renderer, skeleton, poseData = [];
+        let currentPose = null;
+        let animationId = null;
+        let detectionMode = false;
+        let lastDetectedPose = null;
+        let detectionThreshold = 15; // degrees tolerance for pose matching
+
+        // MediaPipe pose connections for skeleton
+        const POSE_CONNECTIONS = [
+            [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19], // Left arm
+            [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20], // Right arm
+            [11, 12], // Shoulders
+            [23, 24], // Hips
+            [11, 23], [12, 24], // Torso
+            [23, 25], [25, 27], [27, 29], [27, 31], [29, 31], // Left leg
+            [24, 26], [26, 28], [28, 30], [28, 32], [30, 32], // Right leg
+            [0, 1], [1, 2], [2, 3], [3, 7], // Face outline
+            [0, 4], [4, 5], [5, 6], [6, 8], // Face outline
+            [9, 10] // Mouth
+        ];
+
+        // Initialize Three.js scene
+        function initThreeJS() {
+            const container = document.getElementById('threejs-container');
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
+
+            // Camera setup
+            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 0, 5);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 10, 5);
+            scene.add(directionalLight);
+
+            // Create skeleton group
+            skeleton = new THREE.Group();
+            scene.add(skeleton);
+
+            // Add coordinate system
+            const axesHelper = new THREE.AxesHelper(1);
+            scene.add(axesHelper);
+
+            // Simple orbit controls simulation for 3D view
+            let mouseDown = false;
+            let mouseX = 0, mouseY = 0;
+
+            container.addEventListener('mousedown', (e) => {
+                mouseDown = true;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                if (!mouseDown) return;
+
+                const deltaX = e.clientX - mouseX;
+                const deltaY = e.clientY - mouseY;
+
+                skeleton.rotation.y += deltaX * 0.01;
+                skeleton.rotation.x += deltaY * 0.01;
+
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            container.addEventListener('mouseup', () => {
+                mouseDown = false;
+            });
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+
+            // Render loop
+            function animate() {
+                requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        // Update 3D skeleton with pose landmarks
+        function updateSkeleton(landmarks) {
+            // Clear previous skeleton
+            skeleton.clear();
+
+            if (!landmarks || landmarks.length === 0) return;
+
+            // Create joints
+            const jointGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+            const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+
+            landmarks.forEach((landmark, index) => {
+                const joint = new THREE.Mesh(jointGeometry, jointMaterial);
+                // Convert MediaPipe coordinates to Three.js coordinates
+                // MediaPipe gives coordinates normalized [0,1]
+                // We scale them and center them around (0,0) for Three.js
+                // Z-coordinate from MediaPipe is relative depth
+                joint.position.set(
+                    (landmark.x - 0.5) * 4, // Scale x by 4 and center
+                    -(landmark.y - 0.5) * 4, // Flip Y axis, scale by 4 and center
+                    -landmark.z * 2 // Scale Z and apply negative for typical 3D orientation
+                );
+                skeleton.add(joint);
+            });
+
+            // Create bones
+            const boneMaterial = new THREE.LineBasicMaterial({ color: 0x0088ff });
+
+            POSE_CONNECTIONS.forEach(connection => {
+                const [start, end] = connection;
+                if (start < landmarks.length && end < landmarks.length) {
+                    const points = [];
+                    points.push(new THREE.Vector3(
+                        (landmarks[start].x - 0.5) * 4,
+                        -(landmarks[start].y - 0.5) * 4,
+                        -landmarks[start].z * 2
+                    ));
+                    points.push(new THREE.Vector3(
+                        (landmarks[end].x - 0.5) * 4,
+                        -(landmarks[end].y - 0.5) * 4,
+                        -landmarks[end].z * 2
+                    ));
+
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.Line(geometry, boneMaterial);
+                    skeleton.add(line);
+                }
+            });
+        }
+
+        // Calculate angle between three points (point2 is the vertex)
+        function calculateAngle(point1, point2, point3) {
+            // Convert MediaPipe landmark objects to simple objects with x, y, z properties
+            const p1 = { x: point1.x, y: point1.y, z: point1.z };
+            const p2 = { x: point2.x, y: point2.y, z: point2.z };
+            const p3 = { x: point3.x, y: point3.y, z: point3.z };
+
+            const vector1 = {
+                x: p1.x - p2.x,
+                y: p1.y - p2.y,
+                z: p1.z - p2.z
+            };
+
+            const vector2 = {
+                x: p3.x - p2.x,
+                y: p3.y - p2.y,
+                z: p3.z - p2.z
+            };
+
+            const dot = vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z;
+            const mag1 = Math.sqrt(vector1.x * vector1.x + vector1.y * vector1.y + vector1.z * vector1.z);
+            const mag2 = Math.sqrt(vector2.x * vector2.x + vector2.y * vector2.y + vector2.z * vector2.z);
+
+            // Avoid division by zero if magnitude is zero
+            if (mag1 === 0 || mag2 === 0) return 0;
+
+            const cosine = dot / (mag1 * mag2);
+            // Clamp cosine value to [-1, 1] to prevent NaN from acos due to floating point inaccuracies
+            const angle = Math.acos(Math.max(-1, Math.min(1, cosine)));
+
+            return angle * (180 / Math.PI); // Convert to degrees
+        }
+
+        // Calculate joint angles for pose analysis
+        function calculateJointAngles(landmarks) {
+            if (!landmarks || landmarks.length < 33) return {}; // MediaPipe Pose has 33 landmarks
+
+            const angles = {};
+
+            // Calculate key angles for physiotherapy (using specific landmark indices)
+            // Landmark indices:
+            // 11: Left Shoulder, 13: Left Elbow, 15: Left Wrist
+            // 12: Right Shoulder, 14: Right Elbow, 16: Right Wrist
+            // 23: Left Hip, 25: Left Knee, 27: Left Ankle
+            // 24: Right Hip, 26: Right Knee, 28: Right Ankle
+
+            // Left elbow angle (shoulder-elbow-wrist)
+            angles.leftElbow = calculateAngle(landmarks[11], landmarks[13], landmarks[15]);
+            // Right elbow angle (shoulder-elbow-wrist)
+            angles.rightElbow = calculateAngle(landmarks[12], landmarks[14], landmarks[16]);
+
+            // Left knee angle (hip-knee-ankle)
+            angles.leftKnee = calculateAngle(landmarks[23], landmarks[25], landmarks[27]);
+            // Right knee angle (hip-knee-ankle)
+            angles.rightKnee = calculateAngle(landmarks[24], landmarks[26], landmarks[28]);
+
+            // Left shoulder angle (elbow-shoulder-hip)
+            angles.leftShoulder = calculateAngle(landmarks[13], landmarks[11], landmarks[23]);
+            // Right shoulder angle (elbow-shoulder-hip)
+            angles.rightShoulder = calculateAngle(landmarks[14], landmarks[12], landmarks[24]);
+
+            // Add more angles as needed for specific exercises, e.g., torso, hips etc.
+            // Example: Torso Angle (left shoulder - left hip - right hip) - rough indicator of lean
+            // angles.torsoBend = calculateAngle(landmarks[11], landmarks[23], landmarks[24]);
+
+            return angles;
+        }
+
+        // Compare two poses and return similarity score
+        function comparePoses(pose1, pose2) {
+            if (!pose1 || !pose2 || !pose1.angles || !pose2.angles) {
+                return { similarity: 0, details: {}, isMatch: false };
+            }
+
+            const angles1 = pose1.angles;
+            const angles2 = pose2.angles;
+
+            const comparisons = {};
+            const angleKeys = ['leftElbow', 'rightElbow', 'leftKnee', 'rightKnee', 'leftShoulder', 'rightShoulder']; // Keys of angles to compare
+
+            let totalDifference = 0;
+            let validComparisons = 0;
+
+            angleKeys.forEach(key => {
+                if (angles1[key] !== undefined && angles2[key] !== undefined) {
+                    const diff = Math.abs(angles1[key] - angles2[key]);
+                    comparisons[key] = {
+                        angle1: angles1[key],
+                        angle2: angles2[key],
+                        difference: diff,
+                        match: diff <= detectionThreshold // Check if difference is within tolerance
+                    };
+                    totalDifference += diff;
+                    validComparisons++;
+                }
+            });
+
+            // Calculate average difference and convert to similarity percentage
+            const averageDifference = validComparisons > 0 ? totalDifference / validComparisons : 100;
+            const similarity = Math.max(0, 100 - (averageDifference / 180) * 100); // Normalize diff (max 180 deg) to 100%
+
+            // A pose is considered a match if overall similarity is high AND all individual critical angles are within threshold
+            let allCriticalAnglesMatch = true;
+            angleKeys.forEach(key => {
+                if (comparisons[key] && !comparisons[key].match) {
+                    allCriticalAnglesMatch = false;
+                }
+            });
+
+            return {
+                similarity: similarity,
+                details: comparisons,
+                isMatch: (similarity > 80 && allCriticalAnglesMatch) // Higher threshold for overall match
+            };
+        }
+
+        // Detect which recorded pose matches the current pose
+        function detectPose(currentPose) {
+            if (!currentPose || poseData.length === 0) {
+                return null;
+            }
+
+            let bestMatch = null;
+            let bestSimilarity = -1; // Initialize with a value lower than any possible similarity
+
+            poseData.forEach(recordedPose => {
+                const comparison = comparePoses(currentPose, recordedPose);
+                if (comparison.similarity > bestSimilarity) {
+                    bestSimilarity = comparison.similarity;
+                    bestMatch = {
+                        pose: recordedPose,
+                        similarity: comparison.similarity,
+                        details: comparison.details,
+                        isMatch: comparison.isMatch
+                    };
+                }
+            });
+
+            return bestMatch;
+        }
+
+        // Update detection display
+        function updateDetectionDisplay(detection) {
+            const statusElement = document.getElementById('detection-status');
+
+            if (!detectionMode) {
+                statusElement.textContent = '';
+                return;
+            }
+
+            if (!detection) {
+                statusElement.textContent = 'No pose match detected';
+                statusElement.style.color = '#666';
+                return;
+            }
+
+            if (detection.isMatch) {
+                statusElement.textContent = `✓ POSE DETECTED: "${detection.pose.label}" (${detection.similarity.toFixed(1)}% match)`;
+                statusElement.style.color = '#00ff00';
+
+                // Add visual feedback
+                if (lastDetectedPose !== detection.pose.id) {
+                    // Flash the skeleton green
+                    skeleton.children.forEach(child => {
+                        if (child.material) {
+                            const originalColor = child.material.color.getHex();
+                            child.material.color.setHex(0x00ff00); // Flash green
+                            setTimeout(() => {
+                                child.material.color.setHex(originalColor); // Revert to original color
+                            }, 500);
+                        }
+                    });
+                    lastDetectedPose = detection.pose.id; // Store ID of the last detected pose
+                }
+            } else {
+                statusElement.textContent = `Trying to match "${detection.pose.label}" (${detection.similarity.toFixed(1)}% match)`;
+                statusElement.style.color = '#ff9800'; // Orange for partial match
+                lastDetectedPose = null; // Reset last detected pose if no full match
+            }
+        }
+
+        // Initialize MediaPipe Pose
+        function initMediaPipe() {
+            pose = new Pose({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                }
+            });
+
+            pose.setOptions({
+                modelComplexity: 1, // 0 (fastest), 1 (balanced), 2 (most accurate)
+                smoothLandmarks: true,
+                enableSegmentation: false, // Not needed for pose tracking
+                smoothSegmentation: true, // Not needed, but good practice if enableSegmentation was true
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            pose.onResults(onResults);
+        }
+
+        // Process pose results
+        function onResults(results) {
+            const outputCanvas = document.getElementById('output_canvas');
+            const canvasCtx = outputCanvas.getContext('2d');
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+
+            // Draw the video frame
+            canvasCtx.drawImage(results.image, 0, 0, outputCanvas.width, outputCanvas.height);
+
+            if (results.poseLandmarks) {
+                // Store current pose for recording
+                currentPose = {
+                    landmarks: results.poseLandmarks,
+                    angles: calculateJointAngles(results.poseLandmarks),
+                    timestamp: Date.now()
+                };
+
+                // Update 3D skeleton
+                updateSkeleton(results.poseLandmarks);
+
+                // Draw pose on canvas
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+                drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#FF0000', lineWidth: 1});
+
+                // Update UI
+                document.getElementById('joint-count').textContent = results.poseLandmarks.length;
+                document.getElementById('status').textContent = 'Pose detected - Ready for recording';
+                document.getElementById('record-pose-btn').disabled = false;
+
+                // Pose detection logic
+                if (detectionMode) {
+                    const detection = detectPose(currentPose);
+                    updateDetectionDisplay(detection);
+                }
+            } else {
+                document.getElementById('joint-count').textContent = '0';
+                document.getElementById('status').textContent = 'No pose detected';
+                document.getElementById('record-pose-btn').disabled = true;
+                document.getElementById('detection-status').textContent = ''; // Clear detection status if no pose
+            }
+
+            canvasCtx.restore();
+        }
+
+        // Record current pose for training
+        function recordPose() {
+            if (!currentPose) return;
+
+            // Get custom label from user
+            const label = prompt(`Enter a name for this pose (e.g., "Arm Raise", "Squat", "Shoulder Press"):`, `Exercise_${poseData.length + 1}`);
+            if (!label) return; // User cancelled
+
+            // Add pose to training data
+            poseData.push({
+                id: poseData.length + 1, // Assign a unique ID
+                ...currentPose,
+                label: label
+            });
+
+            // Update UI
+            document.getElementById('pose-count').textContent = poseData.length;
+            document.getElementById('toggle-detection-btn').disabled = false; // Enable detection button
+            updatePoseDataDisplay();
+
+            // Visual feedback
+            document.getElementById('recording-status').innerHTML =
+                `<div class="recording-indicator">✓ "${label}" recorded!</div>`;
+            setTimeout(() => {
+                document.getElementById('recording-status').innerHTML = '';
+            }, 2000);
+        }
+
+        // Update pose data display
+        function updatePoseDataDisplay() {
+            const container = document.getElementById('pose-data');
+            if (poseData.length === 0) {
+                container.textContent = 'No poses recorded yet. Click "Record Current Pose" to start collecting training data.';
+                return;
+            }
+
+            let html = '';
+            poseData.forEach((pose, index) => {
+                html += `<div><strong>${pose.label}</strong> (Recorded at: ${new Date(pose.timestamp).toLocaleTimeString()})</div>`;
+                // Displaying selected angles for quick review
+                html += `<div>Left Elbow: ${pose.angles.leftElbow?.toFixed(1)}°, Right Elbow: ${pose.angles.rightElbow?.toFixed(1)}°</div>`;
+                html += `<div>Left Knee: ${pose.angles.leftKnee?.toFixed(1)}°, Right Knee: ${pose.angles.rightKnee?.toFixed(1)}°</div>`;
+                html += `<div>Left Shoulder: ${pose.angles.leftShoulder?.toFixed(1)}°, Right Shoulder: ${pose.angles.rightShoulder?.toFixed(1)}°</div>`;
+                html += '<br>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Initialize camera and start video processing
+        async function startCamera() {
+            try {
+                console.log('Starting camera...');
+                videoElement = document.getElementById('input_video');
+                const outputCanvas = document.getElementById('output_canvas');
+
+                // Set canvas size based on video element's natural size once loaded, or default
+                // For live camera, it's better to let CSS size it and canvas.width/height match for drawing
+                // We set outputCanvas dimensions to match the target display resolution for MediaPipe
+                outputCanvas.width = 640;
+                outputCanvas.height = 480;
+
+                // Update status
+                document.getElementById('status').textContent = 'Requesting camera access...';
+
+                // Check if getUserMedia is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('getUserMedia is not supported by this browser.');
+                }
+
+                console.log('Requesting camera permission...');
+
+                // Get user media with more flexible constraints
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 }, // Prefer 640 width
+                        height: { ideal: 480 }, // Prefer 480 height
+                        facingMode: 'user' // Front camera
+                    },
+                    audio: false
+                });
+
+                console.log('Camera stream obtained successfully');
+
+                videoElement.srcObject = stream;
+
+                // Wait for video to be ready (metadata loaded and can play)
+                await new Promise((resolve) => {
+                    videoElement.onloadedmetadata = () => {
+                        console.log('Video metadata loaded');
+                        // Ensure the video element is truly ready to play
+                        videoElement.oncanplay = () => resolve();
+                    };
+                });
+
+                // Start video playback
+                await videoElement.play();
+                console.log('Video playback started');
+
+                // Start processing video frames
+                processVideoFrame();
+
+                // Update UI
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+                document.getElementById('status').textContent = 'Camera started - Move into view';
+
+            } catch (error) {
+                console.error('Detailed error starting camera:', error);
+
+                let errorMessage = 'Error: Could not access camera.';
+
+                if (error.name === 'NotAllowedError') {
+                    errorMessage = 'Error: Camera permission denied. Please allow camera access and try again.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = 'Error: No camera found. Please connect a camera and try again.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage = 'Error: Camera is being used by another application or is unavailable.';
+                } else if (error.name === 'OverconstrainedError') {
+                    errorMessage = 'Error: Camera constraints (like resolution) not supported. Trying with minimal constraints...';
+                    // Attempt fallback if specific constraints failed
+                    try {
+                        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                        videoElement.srcObject = fallbackStream;
+                        await videoElement.play();
+                        processVideoFrame();
+                        document.getElementById('start-btn').disabled = true;
+                        document.getElementById('stop-btn').disabled = false;
+                        document.getElementById('status').textContent = 'Camera started (fallback mode) - Move into view';
+                        return; // Exit here as fallback succeeded
+                    } catch (fallbackError) {
+                        console.error('Fallback also failed:', fallbackError);
+                        errorMessage = 'Error: Camera access failed completely (even with minimal constraints).';
+                    }
+                } else if (error.message.includes("device might be in use")) {
+                     errorMessage = 'Error: Your camera is likely in use by another application or browser tab. Please close other apps and try again.';
+                }
+
+                document.getElementById('status').textContent = errorMessage;
+            }
+        }
+
+        // Process video frames
+        async function processVideoFrame() {
+            // Only send image to MediaPipe if video is ready and playing
+            if (videoElement && videoElement.readyState >= 2) { // READYSTATE_HAVE_CURRENT_DATA or higher
+                await pose.send({image: videoElement});
+            }
+
+            // Continue processing regardless, so animation loop doesn't stop
+            animationId = requestAnimationFrame(processVideoFrame);
+        }
+
+        // Stop camera
+        function stopCamera() {
+            if (videoElement && videoElement.srcObject) {
+                const stream = videoElement.srcObject;
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop()); // Stop all tracks (video, audio if any)
+                videoElement.srcObject = null; // Disconnect stream from video element
+            }
+
+            if (animationId) {
+                cancelAnimationFrame(animationId); // Stop the animation frame loop
+                animationId = null;
+            }
+
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+            document.getElementById('record-pose-btn').disabled = true;
+            document.getElementById('status').textContent = 'Camera stopped';
+            document.getElementById('joint-count').textContent = '0';
+            updateSkeleton([]); // Clear 3D skeleton
+            document.getElementById('detection-status').textContent = ''; // Clear detection status
+            detectionMode = false;
+            document.getElementById('toggle-detection-btn').textContent = 'Start Detection';
+            document.getElementById('toggle-detection-btn').style.background = '#4CAF50';
+        }
+
+        // Clear recorded poses
+        function clearPoses() {
+            const confirmClear = confirm("Are you sure you want to clear all recorded poses?");
+            if (confirmClear) {
+                poseData = [];
+                document.getElementById('pose-count').textContent = '0';
+                document.getElementById('toggle-detection-btn').disabled = true; // Disable detection if no poses
+                detectionMode = false;
+                document.getElementById('toggle-detection-btn').textContent = 'Start Detection';
+                document.getElementById('toggle-detection-btn').style.background = '#4CAF50';
+                document.getElementById('detection-status').textContent = '';
+                lastDetectedPose = null;
+                updatePoseDataDisplay();
+            }
+        }
+
+        // Toggle pose detection mode
+        function toggleDetection() {
+            if (poseData.length === 0) {
+                alert('Please record at least one pose before starting detection!');
+                return;
+            }
+
+            detectionMode = !detectionMode;
+            const button = document.getElementById('toggle-detection-btn');
+
+            if (detectionMode) {
+                button.textContent = 'Stop Detection';
+                button.style.background = '#ff4444'; // Red for stop
+                document.getElementById('detection-status').textContent = 'Detection mode active - Perform your recorded poses!';
+                document.getElementById('detection-status').style.color = '#00ff00';
+            } else {
+                button.textContent = 'Start Detection';
+                button.style.background = '#4CAF50'; // Green for start
+                document.getElementById('detection-status').textContent = '';
+                lastDetectedPose = null; // Reset last detected pose
+            }
+        }
+
+        // Event listeners
+        document.getElementById('start-btn').addEventListener('click', startCamera);
+        document.getElementById('stop-btn').addEventListener('click', stopCamera);
+        document.getElementById('record-pose-btn').addEventListener('click', recordPose);
+        document.getElementById('clear-poses-btn').addEventListener('click', clearPoses);
+        document.getElementById('toggle-detection-btn').addEventListener('click', toggleDetection);
+
+        // Initialize everything when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            initThreeJS();
+            initMediaPipe();
+            updatePoseDataDisplay(); // Display initial state of recorded poses
+        });
+    </script>
+</body>
+</html>
