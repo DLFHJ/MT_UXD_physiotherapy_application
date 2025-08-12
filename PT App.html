@@ -113,6 +113,48 @@
         }
         
         #exercise-feedback { margin-top: 15px; padding: 10px; background: #1a1a1a; border-radius: 5px; min-height: 60px; }
+
+        /* Session Summary Modal Styles */
+        #summary-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .summary-content {
+            background-color: #2a2a2a;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .summary-content h2 {
+            color: #4CAF50;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        #close-summary {
+            background-color: #f44336;
+        }
+
     </style>
 </head>
 <body>
@@ -171,6 +213,31 @@
         </div>
     </div>
 
+    <div id="summary-modal">
+        <div class="summary-content">
+            <h2>Session Summary</h2>
+            <div class="summary-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="summary-sets">0</div>
+                    <div class="stat-label">Total Sets</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="summary-reps">0</div>
+                    <div class="stat-label">Total Reps</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="summary-quality">--</div>
+                    <div class="stat-label">Avg. Quality</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="summary-time">0:00</div>
+                    <div class="stat-label">Total Time</div>
+                </div>
+            </div>
+            <button id="close-summary">Close</button>
+        </div>
+    </div>
+
     <script>
         // --- FRAMEWORK GLOBALS ---
         let pose, videoElement, scene, renderer, skeleton, camera;
@@ -187,7 +254,7 @@
         let setCount = 1;
         const repGoal = 5;
         let lastRepTime = 0;
-        const REP_COOLDOWN = 1000; // 1-second cooldown for reps
+        const REP_COOLDOWN = 1000;
 
         // --- AUDIO FEEDBACK GLOBALS ---
         const synth = window.speechSynthesis;
@@ -459,14 +526,41 @@
         }
 
         function stopExercise() {
+            showSummary();
             isExerciseActive = false;
             activeExercise = null;
+        }
+
+        function resetExerciseState() {
             document.getElementById('start-squat-btn').disabled = false;
             document.getElementById('start-curl-btn').disabled = false;
             document.getElementById('stop-exercise-btn').disabled = true;
-            document.getElementById('exercise-phase').textContent = 'Exercise Stopped';
+            document.getElementById('exercise-phase').textContent = 'Select a new exercise.';
             document.getElementById('feedback-text').textContent = 'Great work! Select a new exercise.';
+            
+            // Reset numerical displays
+            document.getElementById('set-count').textContent = '0';
+            document.getElementById('rep-count').textContent = `0 / ${repGoal}`;
+            document.getElementById('current-quality').textContent = '--';
+            document.getElementById('avg-quality').textContent = '--';
+            document.getElementById('exercise-time').textContent = '0:00';
+
             speak("Exercise stopped.");
+        }
+
+        function showSummary() {
+            const totalReps = ((setCount - 1) * repGoal) + repCount;
+            const avgQuality = qualityScores.length > 0 ? (qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length).toFixed(0) + '%' : 'N/A';
+            const elapsedTime = Math.floor((Date.now() - exerciseStartTime) / 1000);
+            const minutes = Math.floor(elapsedTime / 60);
+            const seconds = elapsedTime % 60;
+
+            document.getElementById('summary-sets').textContent = setCount - 1;
+            document.getElementById('summary-reps').textContent = totalReps;
+            document.getElementById('summary-quality').textContent = avgQuality;
+            document.getElementById('summary-time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            document.getElementById('summary-modal').style.display = 'flex';
         }
 
         function updatePhaseDisplay(phase) {
@@ -584,6 +678,10 @@
             if (isMuted && synth.speaking) {
                 synth.cancel();
             }
+        });
+        document.getElementById('close-summary').addEventListener('click', () => {
+            document.getElementById('summary-modal').style.display = 'none';
+            resetExerciseState();
         });
         
         // --- DOM LOADED ---
