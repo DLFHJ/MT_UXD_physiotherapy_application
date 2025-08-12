@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediaPipe 3D Pose Tracking for Physiotherapy</title>
+    <title>Physiotherapy App - Stable Framework</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
@@ -14,66 +14,58 @@
             background: #1a1a1a;
             color: white;
             font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
-
+        
         .container {
             display: flex;
-            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            flex-wrap: wrap;
             gap: 20px;
             max-width: 1400px;
             margin: 0 auto;
-            justify-content: center; /* Center items when wrapping */
+            justify-content: center;
         }
-
-        .video-section, .threejs-section {
+        
+        .video-section, .analysis-section {
             flex: 1;
-            min-width: 320px; /* Minimum width for sections */
+            min-width: 320px;
+            max-width: 640px;
         }
-
+        
         .video-container {
             position: relative;
             width: 100%;
-            max-width: 640px;
             background: #333;
             border-radius: 10px;
             overflow: hidden;
-            aspect-ratio: 4/3; /* Maintain aspect ratio for video/canvas */
+            aspect-ratio: 4/3;
         }
-
-        #input_video {
-            width: 100%;
-            height: 100%; /* Fill container */
-            display: block;
-            object-fit: cover; /* Cover the area, cropping if necessary */
-        }
-
-        #output_canvas {
+        
+        #input_video, #output_canvas {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%; /* Fill container */
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror view */
         }
 
+        #output_canvas { z-index: 10; }
+        
         #threejs-container {
             width: 100%;
-            height: 500px; /* Fixed height for 3D view */
+            height: 400px;
             background: #222;
             border-radius: 10px;
             position: relative;
         }
-
-        .controls {
+        
+        .controls, .exercise-controls {
             margin-top: 20px;
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
-            justify-content: center; /* Center buttons */
+            justify-content: center;
         }
-
+        
         button {
             padding: 10px 20px;
             background: #4CAF50;
@@ -82,98 +74,65 @@
             border-radius: 5px;
             cursor: pointer;
             transition: background 0.3s;
-            flex-shrink: 0; /* Prevent buttons from shrinking */
         }
-
-        button:hover {
-            background: #45a049;
-        }
-
-        button:disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
-
-        .info-panel, .gesture-section {
+        
+        button:hover:not(:disabled) { background: #45a049; }
+        button:disabled { background: #666; cursor: not-allowed; }
+        #stop-exercise-btn { background-color: #f44336; }
+        #stop-exercise-btn:hover:not(:disabled) { background-color: #d32f2f; }
+        #mute-btn { background-color: #607d8b; }
+        #mute-btn:hover:not(:disabled) { background-color: #546e7a; }
+        
+        .info-panel, .exercise-section {
             margin-top: 20px;
             padding: 15px;
             background: #333;
             border-radius: 10px;
         }
 
-        .pose-data {
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 200px;
-            overflow-y: auto;
-            background: #222;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 10px;
+        .exercise-section { background: #2a4a2a; }
+        
+        .status { color: #4CAF50; font-weight: bold; margin-bottom: 10px; }
+        h1, h2 { text-align: center; color: #4CAF50; margin-bottom: 20px; }
+        
+        .exercise-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
         }
-
-        .status {
-            color: #4CAF50;
-            font-weight: bold;
-            margin-bottom: 10px;
+        
+        .stat-box { background: #1a1a1a; padding: 10px; border-radius: 5px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #4CAF50; }
+        .stat-label { font-size: 12px; color: #999; }
+        
+        .phase-indicator {
+            font-size: 18px; font-weight: bold; padding: 10px;
+            border-radius: 5px; text-align: center; margin-bottom: 10px;
+            background: #555; transition: background-color 0.5s;
         }
-
-        .warning {
-            color: #ff9800;
-            margin-bottom: 10px;
-        }
-
-        h1 {
-            text-align: center;
-            color: #4CAF50;
-            margin-bottom: 30px;
-        }
-
-        h2 {
-            color: #4CAF50;
-            margin-bottom: 15px;
-        }
-
-        .recording-indicator {
-            color: #ff4444;
-            font-weight: bold;
-            animation: blink 1s infinite;
-        }
-
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 900px) {
-            .container {
-                flex-direction: column;
-                align-items: center;
-            }
-            .video-section, .threejs-section {
-                width: 100%;
-                max-width: 640px; /* Limit width even in column layout */
-            }
-        }
+        
+        #exercise-feedback { margin-top: 15px; padding: 10px; background: #1a1a1a; border-radius: 5px; min-height: 60px; }
     </style>
 </head>
 <body>
-    <h1>MediaPipe 3D Pose Tracking for Physiotherapy</h1>
-
+    <h1>Physiotherapy App - Stable Framework</h1>
+    
     <div class="container">
         <div class="video-section">
             <div class="video-container">
                 <video id="input_video" playsinline></video>
                 <canvas id="output_canvas"></canvas>
             </div>
-
+            
             <div class="controls">
-                <button id="start-btn">Start Camera</button>
+                <button id="start-btn" disabled>Loading AI Model...</button>
                 <button id="stop-btn" disabled>Stop Camera</button>
-                <button id="record-pose-btn" disabled>Record Current Pose</button>
-                <button id="clear-poses-btn">Clear Recorded Poses</button>
-                <button id="toggle-detection-btn" disabled>Start Detection</button>
+            </div>
+            
+             <div class="info-panel">
+                <h2>3D Skeleton View</h2>
+                <div id="threejs-container"></div>
             </div>
 
             <div class="info-panel">
@@ -181,650 +140,465 @@
                 <div id="pose-info">
                     <strong>Detected Joints:</strong> <span id="joint-count">0</span>/33
                 </div>
-                <div id="recording-status"></div>
-                <div id="detection-status" style="font-weight: bold; color: #666;"></div>
             </div>
         </div>
-
-        <div class="threejs-section">
-            <h2>3D Skeleton View</h2>
-            <div id="threejs-container"></div>
-
-            <div class="gesture-section">
-                <h2>Gesture Training Data</h2>
-                <div>Recorded poses: <span id="pose-count">0</span></div>
-                <div class="pose-data" id="pose-data">
-                    No poses recorded yet. Click "Record Current Pose" to start collecting training data.
+        
+        <div class="analysis-section">
+            <div class="exercise-section">
+                <h2>Dynamic Exercise Tracking</h2>
+                <div class="exercise-controls">
+                    <button id="start-squat-btn" disabled>Start Squats</button>
+                    <button id="start-curl-btn" disabled>Start Bicep Curls</button>
+                    <button id="stop-exercise-btn" disabled>Stop Exercise</button>
+                    <button id="mute-btn">🔊 Mute</button>
+                </div>
+                
+                <div id="exercise-phase" class="phase-indicator">Ready to start exercise</div>
+                
+                <div class="exercise-stats">
+                    <div class="stat-box"><div class="stat-value" id="set-count">0</div><div class="stat-label">Sets</div></div>
+                    <div class="stat-box"><div class="stat-value" id="rep-count">0 / 5</div><div class="stat-label">Reps / Goal</div></div>
+                    <div class="stat-box"><div class="stat-value" id="current-quality">--</div><div class="stat-label">Quality</div></div>
+                    <div class="stat-box"><div class="stat-value" id="avg-quality">--</div><div class="stat-label">Avg. Quality</div></div>
+                    <div class="stat-box"><div class="stat-value" id="exercise-time">0:00</div><div class="stat-label">Time</div></div>
+                </div>
+                
+                <div id="exercise-feedback">
+                    <strong>Real-time Feedback:</strong>
+                    <div id="feedback-text">Start an exercise to see real-time form feedback.</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Global variables
-        let pose, videoElement, scene, renderer, skeleton, poseData = [];
-        let currentPose = null;
-        let animationId = null;
-        let detectionMode = false;
-        let lastDetectedPose = null;
-        let detectionThreshold = 15; // degrees tolerance for pose matching
+        // --- FRAMEWORK GLOBALS ---
+        let pose, videoElement, scene, renderer, skeleton, camera;
+        let isCameraOn = false;
 
-        // MediaPipe pose connections for skeleton
-        const POSE_CONNECTIONS = [
-            [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19], // Left arm
-            [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20], // Right arm
-            [11, 12], // Shoulders
-            [23, 24], // Hips
-            [11, 23], [12, 24], // Torso
-            [23, 25], [25, 27], [27, 29], [27, 31], [29, 31], // Left leg
-            [24, 26], [26, 28], [28, 30], [28, 32], [30, 32], // Right leg
-            [0, 1], [1, 2], [2, 3], [3, 7], // Face outline
-            [0, 4], [4, 5], [5, 6], [6, 8], // Face outline
-            [9, 10] // Mouth
-        ];
+        // --- EXERCISE ENGINE GLOBALS ---
+        let isExerciseActive = false;
+        let activeExercise = null; 
+        let exerciseStartTime = null;
+        let repCount = 0;
+        let qualityScores = [];
+        let currentPhase = null;
+        let lastPhase = null;
+        let setCount = 1;
+        const repGoal = 5;
+        let lastRepTime = 0;
+        const REP_COOLDOWN = 1000; // 1-second cooldown for reps
 
-        // Initialize Three.js scene
+        // --- AUDIO FEEDBACK GLOBALS ---
+        const synth = window.speechSynthesis;
+        let isMuted = false;
+        let lastSpokenMsg = '';
+        let speechUtterance = new SpeechSynthesisUtterance();
+        let lastSpokenTime = 0;
+        const SPEECH_COOLDOWN = 5000;
+
+        // --- EXERCISE LIBRARY ---
+        const EXERCISE_LIBRARY = {
+            'squat': {
+                name: 'Squat',
+                repSequence: ['standing', 'bottom', 'standing'],
+                phases: {
+                    'standing': {
+                        thresholds: { rightKnee: 160, leftKnee: 160 },
+                        condition: (angles, thresholds) => angles.rightKnee > thresholds.rightKnee && angles.leftKnee > thresholds.leftKnee,
+                        feedback: "Ready to squat"
+                    },
+                    'bottom': {
+                        thresholds: { rightKnee: 100, leftKnee: 100 },
+                        condition: (angles, thresholds) => angles.rightKnee < thresholds.rightKnee && angles.leftKnee < thresholds.leftKnee,
+                        feedback: "Good depth!"
+                    }
+                },
+                getQuality: (pose) => {
+                    const { landmarks, angles } = pose;
+                    const posture = 100 - (Math.abs(landmarks[11].x - landmarks[23].x) * 200);
+                    const symmetry = 100 - Math.abs(angles.leftKnee - angles.rightKnee);
+                    return Math.max(0, (posture * 0.5) + (symmetry * 0.5));
+                },
+                getFeedback: (quality, angles) => {
+                    let feedback = [];
+                    if (quality < 70) feedback.push("Keep your weight balanced and back straight.");
+                    if (angles.rightKnee < 90 && angles.leftKnee < 90) feedback.push("Great depth!");
+                    return feedback.length > 0 ? feedback.join(' ') : 'Good form!';
+                }
+            },
+            'bicep_curl': {
+                name: 'Bicep Curl',
+                repSequence: ['down', 'up', 'down'],
+                phases: {
+                    'down': {
+                        thresholds: { rightElbow: 150 },
+                        condition: (angles, thresholds) => angles.rightElbow > thresholds.rightElbow,
+                        feedback: "Arm extended"
+                    },
+                    'up': {
+                        thresholds: { rightElbow: 70 },
+                        condition: (angles, thresholds) => angles.rightElbow < thresholds.rightElbow,
+                        feedback: "Arm curled"
+                    }
+                },
+                getQuality: (pose) => {
+                    const { landmarks } = pose;
+                    const lean = Math.abs(landmarks[12].x - landmarks[24].x);
+                    return Math.max(0, 100 - (lean * 500));
+                },
+                getFeedback: (quality, angles) => {
+                    let feedback = [];
+                    if (quality < 80) feedback.push("Keep your back straight, avoid swinging.");
+                    if (angles.rightElbow < 60) feedback.push("Excellent contraction!");
+                    return feedback.length > 0 ? feedback.join(' ') : 'Looking good!';
+                }
+            }
+        };
+
+        const POSE_CONNECTIONS = [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [23, 24], [11, 23], [12, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+        
+        // --- INITIALIZATION ---
         function initThreeJS() {
             const container = document.getElementById('threejs-container');
-
-            // Scene setup
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x222222);
-
-            // Camera setup
-            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(0, 0, 5);
-
-            // Renderer setup
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 1.5, 4);
+            camera.lookAt(0, 1, 0);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
-
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
             scene.add(ambientLight);
-
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(0, 10, 5);
             scene.add(directionalLight);
-
-            // Create skeleton group
             skeleton = new THREE.Group();
             scene.add(skeleton);
-
-            // Add coordinate system
             const axesHelper = new THREE.AxesHelper(1);
             scene.add(axesHelper);
 
-            // Simple orbit controls simulation for 3D view
-            let mouseDown = false;
-            let mouseX = 0, mouseY = 0;
-
-            container.addEventListener('mousedown', (e) => {
-                mouseDown = true;
-                mouseX = e.clientX;
-                mouseY = e.clientY;
-            });
-
+            let mouseDown = false, mouseX = 0, mouseY = 0;
+            container.addEventListener('mousedown', (e) => { mouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
             container.addEventListener('mousemove', (e) => {
                 if (!mouseDown) return;
-
-                const deltaX = e.clientX - mouseX;
-                const deltaY = e.clientY - mouseY;
-
-                skeleton.rotation.y += deltaX * 0.01;
-                skeleton.rotation.x += deltaY * 0.01;
-
+                skeleton.rotation.y += (e.clientX - mouseX) * 0.01;
+                skeleton.rotation.x += (e.clientY - mouseY) * 0.01;
                 mouseX = e.clientX;
                 mouseY = e.clientY;
             });
-
-            container.addEventListener('mouseup', () => {
-                mouseDown = false;
-            });
-
-            // Handle window resize
-            window.addEventListener('resize', () => {
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            });
-
-            // Render loop
-            function animate() {
-                requestAnimationFrame(animate);
-                renderer.render(scene, camera);
-            }
-            animate();
+            container.addEventListener('mouseup', () => { mouseDown = false; });
         }
 
-        // Update 3D skeleton with pose landmarks
-        function updateSkeleton(landmarks) {
-            // Clear previous skeleton
-            skeleton.clear();
-
-            if (!landmarks || landmarks.length === 0) return;
-
-            // Create joints
-            const jointGeometry = new THREE.SphereGeometry(0.02, 8, 8);
-            const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-
-            landmarks.forEach((landmark, index) => {
-                const joint = new THREE.Mesh(jointGeometry, jointMaterial);
-                // Convert MediaPipe coordinates to Three.js coordinates
-                // MediaPipe gives coordinates normalized [0,1]
-                // We scale them and center them around (0,0) for Three.js
-                // Z-coordinate from MediaPipe is relative depth
-                joint.position.set(
-                    (landmark.x - 0.5) * 4, // Scale x by 4 and center
-                    -(landmark.y - 0.5) * 4, // Flip Y axis, scale by 4 and center
-                    -landmark.z * 2 // Scale Z and apply negative for typical 3D orientation
-                );
-                skeleton.add(joint);
+        async function initMediaPipe() {
+            pose = new Pose({ 
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` 
             });
-
-            // Create bones
-            const boneMaterial = new THREE.LineBasicMaterial({ color: 0x0088ff });
-
-            POSE_CONNECTIONS.forEach(connection => {
-                const [start, end] = connection;
-                if (start < landmarks.length && end < landmarks.length) {
-                    const points = [];
-                    points.push(new THREE.Vector3(
-                        (landmarks[start].x - 0.5) * 4,
-                        -(landmarks[start].y - 0.5) * 4,
-                        -landmarks[start].z * 2
-                    ));
-                    points.push(new THREE.Vector3(
-                        (landmarks[end].x - 0.5) * 4,
-                        -(landmarks[end].y - 0.5) * 4,
-                        -landmarks[end].z * 2
-                    ));
-
-                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    const line = new THREE.Line(geometry, boneMaterial);
-                    skeleton.add(line);
-                }
+            pose.setOptions({ 
+                modelComplexity: 1, 
+                smoothLandmarks: true, 
+                minDetectionConfidence: 0.5, 
+                minTrackingConfidence: 0.5 
             });
-        }
-
-        // Calculate angle between three points (point2 is the vertex)
-        function calculateAngle(point1, point2, point3) {
-            // Convert MediaPipe landmark objects to simple objects with x, y, z properties
-            const p1 = { x: point1.x, y: point1.y, z: point1.z };
-            const p2 = { x: point2.x, y: point2.y, z: point2.z };
-            const p3 = { x: point3.x, y: point3.y, z: point3.z };
-
-            const vector1 = {
-                x: p1.x - p2.x,
-                y: p1.y - p2.y,
-                z: p1.z - p2.z
-            };
-
-            const vector2 = {
-                x: p3.x - p2.x,
-                y: p3.y - p2.y,
-                z: p3.z - p2.z
-            };
-
-            const dot = vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z;
-            const mag1 = Math.sqrt(vector1.x * vector1.x + vector1.y * vector1.y + vector1.z * vector1.z);
-            const mag2 = Math.sqrt(vector2.x * vector2.x + vector2.y * vector2.y + vector2.z * vector2.z);
-
-            // Avoid division by zero if magnitude is zero
-            if (mag1 === 0 || mag2 === 0) return 0;
-
-            const cosine = dot / (mag1 * mag2);
-            // Clamp cosine value to [-1, 1] to prevent NaN from acos due to floating point inaccuracies
-            const angle = Math.acos(Math.max(-1, Math.min(1, cosine)));
-
-            return angle * (180 / Math.PI); // Convert to degrees
-        }
-
-        // Calculate joint angles for pose analysis
-        function calculateJointAngles(landmarks) {
-            if (!landmarks || landmarks.length < 33) return {}; // MediaPipe Pose has 33 landmarks
-
-            const angles = {};
-
-            // Calculate key angles for physiotherapy (using specific landmark indices)
-            // Landmark indices:
-            // 11: Left Shoulder, 13: Left Elbow, 15: Left Wrist
-            // 12: Right Shoulder, 14: Right Elbow, 16: Right Wrist
-            // 23: Left Hip, 25: Left Knee, 27: Left Ankle
-            // 24: Right Hip, 26: Right Knee, 28: Right Ankle
-
-            // Left elbow angle (shoulder-elbow-wrist)
-            angles.leftElbow = calculateAngle(landmarks[11], landmarks[13], landmarks[15]);
-            // Right elbow angle (shoulder-elbow-wrist)
-            angles.rightElbow = calculateAngle(landmarks[12], landmarks[14], landmarks[16]);
-
-            // Left knee angle (hip-knee-ankle)
-            angles.leftKnee = calculateAngle(landmarks[23], landmarks[25], landmarks[27]);
-            // Right knee angle (hip-knee-ankle)
-            angles.rightKnee = calculateAngle(landmarks[24], landmarks[26], landmarks[28]);
-
-            // Left shoulder angle (elbow-shoulder-hip)
-            angles.leftShoulder = calculateAngle(landmarks[13], landmarks[11], landmarks[23]);
-            // Right shoulder angle (elbow-shoulder-hip)
-            angles.rightShoulder = calculateAngle(landmarks[14], landmarks[12], landmarks[24]);
-
-            // Add more angles as needed for specific exercises, e.g., torso, hips etc.
-            // Example: Torso Angle (left shoulder - left hip - right hip) - rough indicator of lean
-            // angles.torsoBend = calculateAngle(landmarks[11], landmarks[23], landmarks[24]);
-
-            return angles;
-        }
-
-        // Compare two poses and return similarity score
-        function comparePoses(pose1, pose2) {
-            if (!pose1 || !pose2 || !pose1.angles || !pose2.angles) {
-                return { similarity: 0, details: {}, isMatch: false };
-            }
-
-            const angles1 = pose1.angles;
-            const angles2 = pose2.angles;
-
-            const comparisons = {};
-            const angleKeys = ['leftElbow', 'rightElbow', 'leftKnee', 'rightKnee', 'leftShoulder', 'rightShoulder']; // Keys of angles to compare
-
-            let totalDifference = 0;
-            let validComparisons = 0;
-
-            angleKeys.forEach(key => {
-                if (angles1[key] !== undefined && angles2[key] !== undefined) {
-                    const diff = Math.abs(angles1[key] - angles2[key]);
-                    comparisons[key] = {
-                        angle1: angles1[key],
-                        angle2: angles2[key],
-                        difference: diff,
-                        match: diff <= detectionThreshold // Check if difference is within tolerance
-                    };
-                    totalDifference += diff;
-                    validComparisons++;
-                }
-            });
-
-            // Calculate average difference and convert to similarity percentage
-            const averageDifference = validComparisons > 0 ? totalDifference / validComparisons : 100;
-            const similarity = Math.max(0, 100 - (averageDifference / 180) * 100); // Normalize diff (max 180 deg) to 100%
-
-            // A pose is considered a match if overall similarity is high AND all individual critical angles are within threshold
-            let allCriticalAnglesMatch = true;
-            angleKeys.forEach(key => {
-                if (comparisons[key] && !comparisons[key].match) {
-                    allCriticalAnglesMatch = false;
-                }
-            });
-
-            return {
-                similarity: similarity,
-                details: comparisons,
-                isMatch: (similarity > 80 && allCriticalAnglesMatch) // Higher threshold for overall match
-            };
-        }
-
-        // Detect which recorded pose matches the current pose
-        function detectPose(currentPose) {
-            if (!currentPose || poseData.length === 0) {
-                return null;
-            }
-
-            let bestMatch = null;
-            let bestSimilarity = -1; // Initialize with a value lower than any possible similarity
-
-            poseData.forEach(recordedPose => {
-                const comparison = comparePoses(currentPose, recordedPose);
-                if (comparison.similarity > bestSimilarity) {
-                    bestSimilarity = comparison.similarity;
-                    bestMatch = {
-                        pose: recordedPose,
-                        similarity: comparison.similarity,
-                        details: comparison.details,
-                        isMatch: comparison.isMatch
-                    };
-                }
-            });
-
-            return bestMatch;
-        }
-
-        // Update detection display
-        function updateDetectionDisplay(detection) {
-            const statusElement = document.getElementById('detection-status');
-
-            if (!detectionMode) {
-                statusElement.textContent = '';
-                return;
-            }
-
-            if (!detection) {
-                statusElement.textContent = 'No pose match detected';
-                statusElement.style.color = '#666';
-                return;
-            }
-
-            if (detection.isMatch) {
-                statusElement.textContent = `✓ POSE DETECTED: "${detection.pose.label}" (${detection.similarity.toFixed(1)}% match)`;
-                statusElement.style.color = '#00ff00';
-
-                // Add visual feedback
-                if (lastDetectedPose !== detection.pose.id) {
-                    // Flash the skeleton green
-                    skeleton.children.forEach(child => {
-                        if (child.material) {
-                            const originalColor = child.material.color.getHex();
-                            child.material.color.setHex(0x00ff00); // Flash green
-                            setTimeout(() => {
-                                child.material.color.setHex(originalColor); // Revert to original color
-                            }, 500);
-                        }
-                    });
-                    lastDetectedPose = detection.pose.id; // Store ID of the last detected pose
-                }
-            } else {
-                statusElement.textContent = `Trying to match "${detection.pose.label}" (${detection.similarity.toFixed(1)}% match)`;
-                statusElement.style.color = '#ff9800'; // Orange for partial match
-                lastDetectedPose = null; // Reset last detected pose if no full match
-            }
-        }
-
-        // Initialize MediaPipe Pose
-        function initMediaPipe() {
-            pose = new Pose({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-                }
-            });
-
-            pose.setOptions({
-                modelComplexity: 1, // 0 (fastest), 1 (balanced), 2 (most accurate)
-                smoothLandmarks: true,
-                enableSegmentation: false, // Not needed for pose tracking
-                smoothSegmentation: true, // Not needed, but good practice if enableSegmentation was true
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-
             pose.onResults(onResults);
+            await pose.initialize();
         }
 
-        // Process pose results
+        // --- SINGLE ANIMATION LOOP ---
+        function renderLoop() {
+            requestAnimationFrame(renderLoop);
+            if (isCameraOn && videoElement && videoElement.readyState >= 4) {
+                 pose.send({image: videoElement});
+            }
+            renderer.render(scene, camera);
+        }
+
+        // --- CORE PROCESSING LOGIC ---
         function onResults(results) {
-            const outputCanvas = document.getElementById('output_canvas');
-            const canvasCtx = outputCanvas.getContext('2d');
-
+            const canvasCtx = document.getElementById('output_canvas').getContext('2d');
             canvasCtx.save();
-            canvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            canvasCtx.clearRect(0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height);
 
-            // Draw the video frame
-            canvasCtx.drawImage(results.image, 0, 0, outputCanvas.width, outputCanvas.height);
-
+            let quality = null;
             if (results.poseLandmarks) {
-                // Store current pose for recording
-                currentPose = {
-                    landmarks: results.poseLandmarks,
-                    angles: calculateJointAngles(results.poseLandmarks),
-                    timestamp: Date.now()
-                };
-
-                // Update 3D skeleton
-                updateSkeleton(results.poseLandmarks);
-
-                // Draw pose on canvas
+                const angles = calculateJointAngles(results.poseLandmarks);
+                
+                if (isExerciseActive) {
+                    quality = processExercise(results.poseLandmarks, angles);
+                }
+                
+                updateSkeleton(results.poseLandmarks, quality);
                 drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
                 drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#FF0000', lineWidth: 1});
-
-                // Update UI
+                
                 document.getElementById('joint-count').textContent = results.poseLandmarks.length;
-                document.getElementById('status').textContent = 'Pose detected - Ready for recording';
-                document.getElementById('record-pose-btn').disabled = false;
-
-                // Pose detection logic
-                if (detectionMode) {
-                    const detection = detectPose(currentPose);
-                    updateDetectionDisplay(detection);
+                document.getElementById('status').textContent = 'Pose detected';
+                if(!isExerciseActive){
+                    document.getElementById('start-squat-btn').disabled = false;
+                    document.getElementById('start-curl-btn').disabled = false;
                 }
             } else {
                 document.getElementById('joint-count').textContent = '0';
                 document.getElementById('status').textContent = 'No pose detected';
-                document.getElementById('record-pose-btn').disabled = true;
-                document.getElementById('detection-status').textContent = ''; // Clear detection status if no pose
+                document.getElementById('start-squat-btn').disabled = true;
+                document.getElementById('start-curl-btn').disabled = true;
+                updateSkeleton(null, null);
             }
-
             canvasCtx.restore();
         }
 
-        // Record current pose for training
-        function recordPose() {
-            if (!currentPose) return;
-
-            // Get custom label from user
-            const label = prompt(`Enter a name for this pose (e.g., "Arm Raise", "Squat", "Shoulder Press"):`, `Exercise_${poseData.length + 1}`);
-            if (!label) return; // User cancelled
-
-            // Add pose to training data
-            poseData.push({
-                id: poseData.length + 1, // Assign a unique ID
-                ...currentPose,
-                label: label
-            });
-
-            // Update UI
-            document.getElementById('pose-count').textContent = poseData.length;
-            document.getElementById('toggle-detection-btn').disabled = false; // Enable detection button
-            updatePoseDataDisplay();
-
-            // Visual feedback
-            document.getElementById('recording-status').innerHTML =
-                `<div class="recording-indicator">✓ "${label}" recorded!</div>`;
-            setTimeout(() => {
-                document.getElementById('recording-status').innerHTML = '';
-            }, 2000);
-        }
-
-        // Update pose data display
-        function updatePoseDataDisplay() {
-            const container = document.getElementById('pose-data');
-            if (poseData.length === 0) {
-                container.textContent = 'No poses recorded yet. Click "Record Current Pose" to start collecting training data.';
-                return;
+        function processExercise(landmarks, angles) {
+            const now = Date.now();
+            let newPhase = null;
+            for (const phaseName in activeExercise.phases) {
+                const phaseDef = activeExercise.phases[phaseName];
+                if (phaseDef.condition(angles, phaseDef.thresholds)) {
+                    newPhase = phaseName;
+                    break;
+                }
             }
 
-            let html = '';
-            poseData.forEach((pose, index) => {
-                html += `<div><strong>${pose.label}</strong> (Recorded at: ${new Date(pose.timestamp).toLocaleTimeString()})</div>`;
-                // Displaying selected angles for quick review
-                html += `<div>Left Elbow: ${pose.angles.leftElbow?.toFixed(1)}°, Right Elbow: ${pose.angles.rightElbow?.toFixed(1)}°</div>`;
-                html += `<div>Left Knee: ${pose.angles.leftKnee?.toFixed(1)}°, Right Knee: ${pose.angles.rightKnee?.toFixed(1)}°</div>`;
-                html += `<div>Left Shoulder: ${pose.angles.leftShoulder?.toFixed(1)}°, Right Shoulder: ${pose.angles.rightShoulder?.toFixed(1)}°</div>`;
-                html += '<br>';
-            });
+            if (newPhase && newPhase !== currentPhase) {
+                lastPhase = currentPhase;
+                currentPhase = newPhase;
+                updatePhaseDisplay(currentPhase);
 
-            container.innerHTML = html;
+                if (lastPhase === activeExercise.repSequence[1] && currentPhase === activeExercise.repSequence[2] && (now - lastRepTime > REP_COOLDOWN)) {
+                    lastRepTime = now;
+                    repCount++;
+                    
+                    if (repCount === repGoal) {
+                        setCount++;
+                        repCount = 0;
+                        speak("Set complete", true);
+                    } else {
+                        speak(String(repCount), true);
+                    }
+                    
+                    updateRepAndSetDisplay();
+                    updateAverageQuality();
+                }
+            }
+
+            const quality = activeExercise.getQuality({landmarks, angles});
+            if (quality) {
+                document.getElementById('current-quality').textContent = `${quality.toFixed(0)}%`;
+                qualityScores.push(quality);
+                const feedback = activeExercise.getFeedback(quality, angles);
+                document.getElementById('feedback-text').innerHTML = feedback.replace(/<[^>]*>?/gm, '');
+                speak(feedback);
+            }
+            return quality;
         }
 
-        // Initialize camera and start video processing
+        // --- UTILITY & UI FUNCTIONS ---
+        function speak(text, force = false) {
+            if (isMuted || !text) return;
+            const now = Date.now();
+            const plainText = text.replace(/<[^>]*>?/gm, '');
+
+            if (force) {
+                 if (synth.speaking) synth.cancel();
+                 speechUtterance.text = plainText;
+                 synth.speak(speechUtterance);
+                 lastSpokenTime = now;
+                 return;
+            }
+
+            if ((now - lastSpokenTime > SPEECH_COOLDOWN) && (plainText !== lastSpokenMsg)) {
+                 if (synth.speaking) synth.cancel();
+                 speechUtterance.text = plainText;
+                 synth.speak(speechUtterance);
+                 lastSpokenMsg = plainText;
+                 lastSpokenTime = now;
+            }
+        }
+
+        function calculateJointAngles(landmarks) {
+            if (!landmarks || landmarks.length < 33) return {};
+            const p = landmarks;
+            return {
+                rightElbow: calculateAngle(p[12], p[14], p[16]),
+                leftElbow: calculateAngle(p[11], p[13], p[15]),
+                rightKnee: calculateAngle(p[24], p[26], p[28]),
+                leftKnee: calculateAngle(p[23], p[25], p[27]),
+            };
+        }
+
+        function calculateAngle(p1, p2, p3) {
+            if(!p1 || !p2 || !p3) return 0;
+            const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
+            const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
+            const dot = v1.x * v2.x + v1.y * v2.y;
+            const mag1 = Math.sqrt(v1.x**2 + v1.y**2);
+            const mag2 = Math.sqrt(v2.x**2 + v2.y**2);
+            if (mag1 === 0 || mag2 === 0) return 0;
+            return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
+        }
+
+        function startExercise(exerciseKey) {
+            if (!EXERCISE_LIBRARY[exerciseKey]) return;
+            activeExercise = EXERCISE_LIBRARY[exerciseKey];
+            isExerciseActive = true;
+            exerciseStartTime = Date.now();
+            repCount = 0;
+            setCount = 1;
+            qualityScores = [];
+            currentPhase = activeExercise.repSequence[0];
+            
+            updateRepAndSetDisplay();
+            document.getElementById('current-quality').textContent = '--';
+            document.getElementById('avg-quality').textContent = '--';
+            document.getElementById('start-squat-btn').disabled = true;
+            document.getElementById('start-curl-btn').disabled = true;
+            document.getElementById('stop-exercise-btn').disabled = false;
+            updatePhaseDisplay(currentPhase);
+            speak(`Starting ${activeExercise.name} exercise. Goal is ${repGoal} reps.`);
+        }
+
+        function stopExercise() {
+            isExerciseActive = false;
+            activeExercise = null;
+            document.getElementById('start-squat-btn').disabled = false;
+            document.getElementById('start-curl-btn').disabled = false;
+            document.getElementById('stop-exercise-btn').disabled = true;
+            document.getElementById('exercise-phase').textContent = 'Exercise Stopped';
+            document.getElementById('feedback-text').textContent = 'Great work! Select a new exercise.';
+            speak("Exercise stopped.");
+        }
+
+        function updatePhaseDisplay(phase) {
+            const phaseElement = document.getElementById('exercise-phase');
+            if (activeExercise && activeExercise.phases[phase]) {
+                phaseElement.textContent = activeExercise.phases[phase].feedback;
+            }
+        }
+        
+        function updateRepAndSetDisplay() {
+            document.getElementById('rep-count').textContent = `${repCount} / ${repGoal}`;
+            document.getElementById('set-count').textContent = setCount;
+        }
+
+        function updateAverageQuality() {
+            if (qualityScores.length === 0) return;
+            const recentScores = qualityScores.slice(-50);
+            const avg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
+            document.getElementById('avg-quality').textContent = `${avg.toFixed(0)}%`;
+        }
+        
+        setInterval(() => {
+            if (isExerciseActive) {
+                const elapsed = Math.floor((Date.now() - exerciseStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('exercise-time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+
+        function getQualityColor(quality) {
+            const red = new THREE.Color(0xff4444);
+            const yellow = new THREE.Color(0xffff00);
+            const green = new THREE.Color(0x44ff44);
+            
+            if (quality < 50) {
+                return red.lerp(yellow, quality / 50);
+            } else {
+                return yellow.lerp(green, (quality - 50) / 50);
+            }
+        }
+
+        function updateSkeleton(landmarks, quality) {
+            skeleton.clear();
+            if (!landmarks) return;
+
+            const jointColor = 0xffffff;
+            let boneColor = 0x0088ff;
+            if (quality !== null) {
+                boneColor = getQualityColor(quality);
+            }
+
+            const jointMaterial = new THREE.MeshBasicMaterial({ color: jointColor });
+            const boneMaterial = new THREE.LineBasicMaterial({ color: boneColor });
+
+            landmarks.forEach(lm => {
+                const joint = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), jointMaterial);
+                joint.position.set( (lm.x - 0.5) * -2, -(lm.y - 0.5) * 2, -lm.z * 2 );
+                skeleton.add(joint);
+            });
+            
+            POSE_CONNECTIONS.forEach(conn => {
+                if (landmarks[conn[0]] && landmarks[conn[1]]) {
+                    const points = [
+                        new THREE.Vector3((landmarks[conn[0]].x - 0.5) * -2, -(landmarks[conn[0]].y - 0.5) * 2, -landmarks[conn[0]].z * 2),
+                        new THREE.Vector3((landmarks[conn[1]].x - 0.5) * -2, -(landmarks[conn[1]].y - 0.5) * 2, -landmarks[conn[1]].z * 2)
+                    ];
+                    skeleton.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), boneMaterial));
+                }
+            });
+        }
+
         async function startCamera() {
             try {
-                console.log('Starting camera...');
                 videoElement = document.getElementById('input_video');
-                const outputCanvas = document.getElementById('output_canvas');
-
-                // Set canvas size based on video element's natural size once loaded, or default
-                // For live camera, it's better to let CSS size it and canvas.width/height match for drawing
-                // We set outputCanvas dimensions to match the target display resolution for MediaPipe
-                outputCanvas.width = 640;
-                outputCanvas.height = 480;
-
-                // Update status
-                document.getElementById('status').textContent = 'Requesting camera access...';
-
-                // Check if getUserMedia is available
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error('getUserMedia is not supported by this browser.');
-                }
-
-                console.log('Requesting camera permission...');
-
-                // Get user media with more flexible constraints
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 640 }, // Prefer 640 width
-                        height: { ideal: 480 }, // Prefer 480 height
-                        facingMode: 'user' // Front camera
-                    },
-                    audio: false
-                });
-
-                console.log('Camera stream obtained successfully');
-
+                document.getElementById('output_canvas').width = 640;
+                document.getElementById('output_canvas').height = 480;
+                document.getElementById('status').textContent = 'Requesting camera...';
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } });
                 videoElement.srcObject = stream;
-
-                // Wait for video to be ready (metadata loaded and can play)
-                await new Promise((resolve) => {
-                    videoElement.onloadedmetadata = () => {
-                        console.log('Video metadata loaded');
-                        // Ensure the video element is truly ready to play
-                        videoElement.oncanplay = () => resolve();
-                    };
-                });
-
-                // Start video playback
-                await videoElement.play();
-                console.log('Video playback started');
-
-                // Start processing video frames
-                processVideoFrame();
-
-                // Update UI
+                await new Promise(resolve => { videoElement.onloadedmetadata = () => { videoElement.play(); resolve(); }; });
+                
+                isCameraOn = true;
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
-                document.getElementById('status').textContent = 'Camera started - Move into view';
-
+                document.getElementById('status').textContent = 'Camera started';
             } catch (error) {
-                console.error('Detailed error starting camera:', error);
-
-                let errorMessage = 'Error: Could not access camera.';
-
-                if (error.name === 'NotAllowedError') {
-                    errorMessage = 'Error: Camera permission denied. Please allow camera access and try again.';
-                } else if (error.name === 'NotFoundError') {
-                    errorMessage = 'Error: No camera found. Please connect a camera and try again.';
-                } else if (error.name === 'NotReadableError') {
-                    errorMessage = 'Error: Camera is being used by another application or is unavailable.';
-                } else if (error.name === 'OverconstrainedError') {
-                    errorMessage = 'Error: Camera constraints (like resolution) not supported. Trying with minimal constraints...';
-                    // Attempt fallback if specific constraints failed
-                    try {
-                        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                        videoElement.srcObject = fallbackStream;
-                        await videoElement.play();
-                        processVideoFrame();
-                        document.getElementById('start-btn').disabled = true;
-                        document.getElementById('stop-btn').disabled = false;
-                        document.getElementById('status').textContent = 'Camera started (fallback mode) - Move into view';
-                        return; // Exit here as fallback succeeded
-                    } catch (fallbackError) {
-                        console.error('Fallback also failed:', fallbackError);
-                        errorMessage = 'Error: Camera access failed completely (even with minimal constraints).';
-                    }
-                } else if (error.message.includes("device might be in use")) {
-                     errorMessage = 'Error: Your camera is likely in use by another application or browser tab. Please close other apps and try again.';
-                }
-
-                document.getElementById('status').textContent = errorMessage;
+                document.getElementById('status').textContent = 'Error: Could not access camera.';
+                console.error(error);
             }
         }
-
-        // Process video frames
-        async function processVideoFrame() {
-            // Only send image to MediaPipe if video is ready and playing
-            if (videoElement && videoElement.readyState >= 2) { // READYSTATE_HAVE_CURRENT_DATA or higher
-                await pose.send({image: videoElement});
-            }
-
-            // Continue processing regardless, so animation loop doesn't stop
-            animationId = requestAnimationFrame(processVideoFrame);
-        }
-
-        // Stop camera
+        
         function stopCamera() {
-            if (videoElement && videoElement.srcObject) {
-                const stream = videoElement.srcObject;
-                const tracks = stream.getTracks();
-                tracks.forEach(track => track.stop()); // Stop all tracks (video, audio if any)
-                videoElement.srcObject = null; // Disconnect stream from video element
+            if (videoElement.srcObject) {
+                videoElement.srcObject.getTracks().forEach(track => track.stop());
+                videoElement.srcObject = null;
             }
-
-            if (animationId) {
-                cancelAnimationFrame(animationId); // Stop the animation frame loop
-                animationId = null;
-            }
-
+            isCameraOn = false;
             document.getElementById('start-btn').disabled = false;
             document.getElementById('stop-btn').disabled = true;
-            document.getElementById('record-pose-btn').disabled = true;
+            if(isExerciseActive) stopExercise();
             document.getElementById('status').textContent = 'Camera stopped';
-            document.getElementById('joint-count').textContent = '0';
-            updateSkeleton([]); // Clear 3D skeleton
-            document.getElementById('detection-status').textContent = ''; // Clear detection status
-            detectionMode = false;
-            document.getElementById('toggle-detection-btn').textContent = 'Start Detection';
-            document.getElementById('toggle-detection-btn').style.background = '#4CAF50';
         }
 
-        // Clear recorded poses
-        function clearPoses() {
-            const confirmClear = confirm("Are you sure you want to clear all recorded poses?");
-            if (confirmClear) {
-                poseData = [];
-                document.getElementById('pose-count').textContent = '0';
-                document.getElementById('toggle-detection-btn').disabled = true; // Disable detection if no poses
-                detectionMode = false;
-                document.getElementById('toggle-detection-btn').textContent = 'Start Detection';
-                document.getElementById('toggle-detection-btn').style.background = '#4CAF50';
-                document.getElementById('detection-status').textContent = '';
-                lastDetectedPose = null;
-                updatePoseDataDisplay();
-            }
-        }
-
-        // Toggle pose detection mode
-        function toggleDetection() {
-            if (poseData.length === 0) {
-                alert('Please record at least one pose before starting detection!');
-                return;
-            }
-
-            detectionMode = !detectionMode;
-            const button = document.getElementById('toggle-detection-btn');
-
-            if (detectionMode) {
-                button.textContent = 'Stop Detection';
-                button.style.background = '#ff4444'; // Red for stop
-                document.getElementById('detection-status').textContent = 'Detection mode active - Perform your recorded poses!';
-                document.getElementById('detection-status').style.color = '#00ff00';
-            } else {
-                button.textContent = 'Start Detection';
-                button.style.background = '#4CAF50'; // Green for start
-                document.getElementById('detection-status').textContent = '';
-                lastDetectedPose = null; // Reset last detected pose
-            }
-        }
-
-        // Event listeners
+        // --- EVENT LISTENERS ---
         document.getElementById('start-btn').addEventListener('click', startCamera);
         document.getElementById('stop-btn').addEventListener('click', stopCamera);
-        document.getElementById('record-pose-btn').addEventListener('click', recordPose);
-        document.getElementById('clear-poses-btn').addEventListener('click', clearPoses);
-        document.getElementById('toggle-detection-btn').addEventListener('click', toggleDetection);
-
-        // Initialize everything when the DOM is fully loaded
-        document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('start-squat-btn').addEventListener('click', () => startExercise('squat'));
+        document.getElementById('start-curl-btn').addEventListener('click', () => startExercise('bicep_curl'));
+        document.getElementById('stop-exercise-btn').addEventListener('click', stopExercise);
+        document.getElementById('mute-btn').addEventListener('click', () => {
+            isMuted = !isMuted;
+            const muteBtn = document.getElementById('mute-btn');
+            muteBtn.textContent = isMuted ? '🔇 Unmute' : '🔊 Mute';
+            if (isMuted && synth.speaking) {
+                synth.cancel();
+            }
+        });
+        
+        // --- DOM LOADED ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const startBtn = document.getElementById('start-btn');
             initThreeJS();
-            initMediaPipe();
-            updatePoseDataDisplay(); // Display initial state of recorded poses
+            try {
+                await initMediaPipe();
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Camera';
+            } catch (error) {
+                document.getElementById('status').textContent = 'Failed to load AI model.';
+                console.error(error);
+            }
+            renderLoop();
         });
     </script>
 </body>
