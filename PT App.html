@@ -149,6 +149,12 @@
         .stat-value { font-family: 'Poppins', sans-serif; font-size: 28px; font-weight: 600; color: var(--calm-teal); }
         .stat-label { font-size: 14px; color: #666; }
         
+        .phase-indicator {
+            font-size: 18px; font-weight: bold; padding: 10px;
+            border-radius: 8px; text-align: center; margin-bottom: 15px;
+            background: #eee; color: var(--charcoal-gray); transition: background-color 0.5s;
+        }
+        
         .feedback-container {
             flex-grow: 1;
             background: var(--light-gray);
@@ -203,6 +209,8 @@
         </div>
 
         <div class="dynamic-tracking">
+            <h2>Dynamic Exercise Tracking</h2>
+            <div id="exercise-phase" class="phase-indicator">Ready to start exercise</div>
             <div class="tracking-grid">
                 <div class="exercise-controls">
                     <button id="start-squat-btn" disabled>Start Squats</button>
@@ -242,6 +250,7 @@
         // --- FRAMEWORK GLOBALS ---
         let pose, videoElement, scene, renderer, skeleton, camera;
         let isCameraOn = false;
+        let cameraLoopId = null;
 
         // --- EXERCISE ENGINE GLOBALS ---
         let isExerciseActive = false;
@@ -372,11 +381,16 @@
 
         // --- SINGLE ANIMATION LOOP ---
         function renderLoop() {
-            requestAnimationFrame(renderLoop);
-            if (isCameraOn && videoElement && videoElement.readyState >= 4) {
-                 pose.send({image: videoElement});
-            }
             renderer.render(scene, camera);
+            requestAnimationFrame(renderLoop);
+        }
+
+        // --- DEDICATED CAMERA/AI LOOP ---
+        async function cameraLoop() {
+            if (isCameraOn && videoElement && videoElement.readyState >= 4) {
+                await pose.send({image: videoElement});
+            }
+            cameraLoopId = requestAnimationFrame(cameraLoop);
         }
 
         // --- CORE PROCESSING LOGIC ---
@@ -562,7 +576,7 @@
 
         function updatePhaseDisplay(phase) {
             const phaseElement = document.getElementById('exercise-phase');
-            if (activeExercise && activeExercise.phases[phase]) {
+            if (phaseElement && activeExercise && activeExercise.phases[phase]) {
                 phaseElement.textContent = activeExercise.phases[phase].feedback;
             }
         }
@@ -644,6 +658,7 @@
                 document.getElementById('start-btn').disabled = true;
                 document.getElementById('stop-btn').disabled = false;
                 document.getElementById('status').textContent = 'Camera started';
+                cameraLoop();
             } catch (error) {
                 document.getElementById('status').textContent = 'Error: Could not access camera.';
                 console.error(error);
@@ -656,6 +671,7 @@
                 videoElement.srcObject = null;
             }
             isCameraOn = false;
+            cancelAnimationFrame(cameraLoopId);
             document.getElementById('start-btn').disabled = false;
             document.getElementById('stop-btn').disabled = true;
             if(isExerciseActive) stopExercise();
