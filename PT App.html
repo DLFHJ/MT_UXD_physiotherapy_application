@@ -25,10 +25,6 @@
             font-family: 'Inter', sans-serif;
             background-color: var(--light-gray);
             color: var(--charcoal-gray);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
         }
         
         h1, h2 {
@@ -41,7 +37,7 @@
             display: grid;
             grid-template-rows: 1fr auto;
             grid-template-columns: 1fr 1fr;
-            height: 100%;
+            min-height: calc(100vh - 40px); /* Fill viewport height minus padding */
             width: 100%;
             padding: 20px;
             box-sizing: border-box;
@@ -164,7 +160,6 @@
         .feedback-container h3 { margin: 0 0 10px 0; font-family: 'Poppins', sans-serif; }
         #feedback-text { font-size: 16px; color: var(--charcoal-gray); min-height: 40px; }
 
-        /* Session Summary Modal Styles */
         #summary-modal {
             display: none; position: fixed; z-index: 1000;
             left: 0; top: 0; width: 100%; height: 100%;
@@ -182,6 +177,24 @@
         .summary-grid {
             display: grid; grid-template-columns: 1fr 1fr;
             gap: 20px; margin: 25px 0;
+        }
+        
+        .history-log {
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            background-color: var(--light-gray);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        .history-item:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
@@ -229,6 +242,13 @@
                     <h3>Real-time Feedback</h3>
                     <div id="feedback-text">Start an exercise to see real-time form feedback.</div>
                 </div>
+            </div>
+        </div>
+        
+        <div class="info-panel" style="grid-column: 1 / 3;">
+            <h2>Session History</h2>
+            <div id="history-log" class="history-log">
+                <!-- History items will be injected here by JavaScript -->
             </div>
         </div>
     </div>
@@ -381,8 +401,8 @@
 
         // --- SINGLE ANIMATION LOOP ---
         function renderLoop() {
-            renderer.render(scene, camera);
             requestAnimationFrame(renderLoop);
+            renderer.render(scene, camera);
         }
 
         // --- DEDICATED CAMERA/AI LOOP ---
@@ -572,6 +592,8 @@
             document.getElementById('summary-time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
             document.getElementById('summary-modal').style.display = 'flex';
+            
+            saveSession(activeExercise.name, setCount - 1, totalReps, avgQuality);
         }
 
         function updatePhaseDisplay(phase) {
@@ -678,6 +700,46 @@
             document.getElementById('status').textContent = 'Camera stopped';
         }
 
+        // --- Session History Functions ---
+        function saveSession(exerciseName, sets, reps, quality) {
+            const session = {
+                date: new Date().toLocaleString(),
+                exercise: exerciseName,
+                sets: sets,
+                reps: reps,
+                quality: quality
+            };
+            let history = JSON.parse(localStorage.getItem('physioHistory')) || [];
+            history.push(session);
+            localStorage.setItem('physioHistory', JSON.stringify(history));
+            displayHistory();
+        }
+
+        function loadHistory() {
+            displayHistory();
+        }
+
+        function displayHistory() {
+            const historyLog = document.getElementById('history-log');
+            const history = JSON.parse(localStorage.getItem('physioHistory')) || [];
+            historyLog.innerHTML = ''; 
+            
+            if (history.length === 0) {
+                historyLog.innerHTML = '<p>No sessions recorded yet.</p>';
+                return;
+            }
+
+            history.reverse().forEach(session => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <span><strong>${session.exercise}</strong> - ${session.date}</span>
+                    <span>${session.sets} Sets, ${session.reps} Reps, ${session.quality} Quality</span>
+                `;
+                historyLog.appendChild(item);
+            });
+        }
+
         // --- EVENT LISTENERS ---
         document.getElementById('start-btn').addEventListener('click', startCamera);
         document.getElementById('stop-btn').addEventListener('click', stopCamera);
@@ -709,6 +771,7 @@
                 document.getElementById('status').textContent = 'Failed to load AI model.';
                 console.error(error);
             }
+            loadHistory();
             renderLoop();
         });
     </script>
