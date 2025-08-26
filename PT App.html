@@ -292,6 +292,35 @@
             opacity: 0;
             transition: opacity 0.5s ease;
         }
+        
+        .post-session-feedback {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .rest-message {
+            font-family: 'Nunito', sans-serif;
+            font-size: 18px;
+            color: var(--calm-teal);
+        }
+        .emoji-selection {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .emoji {
+            font-size: 36px;
+            cursor: pointer;
+            transition: transform 0.2s, text-shadow 0.2s;
+        }
+        .emoji:hover {
+            transform: scale(1.2);
+        }
+        .emoji.selected {
+            transform: scale(1.3);
+            text-shadow: 0 0 10px var(--soft-yellow);
+        }
     </style>
 </head>
 <body>
@@ -303,7 +332,7 @@
                  <div class="exercise-card">
                     <div class="exercise-card-controls">
                         <h3>Squat</h3>
-                        <img src="https://storage.googleapis.com/gemini-prod/images/squat.jpg" alt="Squat illustration" class="exercise-image" onerror="this.onerror=null;this.src='https://placehold.co/150x150/A8D5BA/333333?text=Squat';">
+                        <img src="https://raw.githubusercontent.com/DLFHJ/MT_UXD_physiotherapy_application/refs/heads/main/images/squat.png" alt="Squat illustration" class="exercise-image" onerror="this.onerror=null;this.src='https://placehold.co/150x150/A8D5BA/333333?text=Squat';">
                         <button class="start-exercise-btn" data-exercise="squat">Start Squats</button>
                     </div>
                     <div class="exercise-card-stats">
@@ -315,7 +344,7 @@
                  <div class="exercise-card">
                     <div class="exercise-card-controls">
                         <h3>Bicep Curl</h3>
-                        <img src="https://storage.googleapis.com/gemini-prod/images/curl.jpg" alt="Bicep Curl illustration" class="exercise-image" onerror="this.onerror=null;this.src='https://placehold.co/150x150/A8D5BA/333333?text=Bicep+Curl';">
+                        <img src="https://raw.githubusercontent.com/DLFHJ/MT_UXD_physiotherapy_application/refs/heads/main/images/curl.png" alt="Bicep Curl illustration" class="exercise-image" onerror="this.onerror=null;this.src='https://placehold.co/150x150/A8D5BA/333333?text=Bicep+Curl';">
                         <button class="start-exercise-btn" data-exercise="bicep_curl">Start Bicep Curls</button>
                     </div>
                      <div class="exercise-card-stats">
@@ -392,6 +421,18 @@
                 <div class="stat-box"><div class="stat-value" id="summary-time">0:00</div><div class="stat-label">Total Time</div></div>
             </div>
             <button id="close-summary">Close</button>
+            
+            <div class="post-session-feedback">
+                <p class="rest-message">Good job on the exercise! Now rest for 5 minutes.</p>
+                <p>How do you feel?</p>
+                <div class="emoji-selection">
+                    <span class="emoji">😊</span>
+                    <span class="emoji">👍</span>
+                    <span class="emoji">😐</span>
+                    <span class="emoji">😥</span>
+                    <span class="emoji">💪</span>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -1011,6 +1052,13 @@
                 e.target.classList.add('active');
                 const exerciseName = e.target.dataset.exercise;
                 renderProgressChart(exerciseName);
+            });
+        });
+        
+        document.querySelectorAll('.emoji').forEach(emoji => {
+            emoji.addEventListener('click', (e) => {
+                document.querySelectorAll('.emoji').forEach(el => el.classList.remove('selected'));
+                e.target.classList.add('selected');
             });
         });
         
