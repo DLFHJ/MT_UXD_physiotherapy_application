@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Physiotherapy App - Redesigned UI</title>
+    <title>Physiotherapy App - Combined UI</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
@@ -12,6 +12,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Inter:wght@400;500&family=Nunito:wght@700&display=swap" rel="stylesheet">
     <style>
+        /* --- CSS styling --- */
+        /* Styling is included in this file to keep the prototype self-contained in one central file */
         :root {
             --calm-teal: #3BA99C;
             --fresh-sage: #A8D5BA;
@@ -35,6 +37,7 @@
         }
 
         /* --- Screen Management --- */
+        /* set up styling for all different screens */
         .screen {
             display: none;
             width: 100%;
@@ -94,14 +97,24 @@
             aspect-ratio: 1/1;
         }
 
+        /* --- Main Container Layouts --- */
         .main-container {
-            display: grid;
-            grid-template-rows: 1fr auto;
+             display: grid;
+             height: 100vh;
+             padding: 20px;
+             box-sizing: border-box;
+             gap: 20px;
+        }
+
+        #two-screen-layout {
+            grid-template-rows: 1fr auto auto;
             grid-template-columns: 1fr 1fr;
-            height: 100vh;
-            padding: 20px;
-            box-sizing: border-box;
-            gap: 20px;
+        }
+
+        #one-screen-layout {
+             grid-template-rows: 1fr auto auto;
+             grid-template-columns: 1fr;
+             display: none; /* Hidden by default */
         }
         
         .camera-view, .skeleton-view {
@@ -114,8 +127,9 @@
             flex-direction: column;
         }
 
-        .camera-view { grid-column: 1 / 2; }
-        .skeleton-view { grid-column: 2 / 3; }
+        #two-screen-layout .camera-view { grid-column: 1 / 2; }
+        #two-screen-layout .skeleton-view { grid-column: 2 / 3; }
+        #one-screen-layout .camera-view { grid-column: 1 / -1; }
 
         .video-container {
             position: relative;
@@ -123,7 +137,7 @@
             background: #000;
             border-radius: 8px;
             overflow: hidden;
-            aspect-ratio: 4/3;
+            aspect-ratio: 16/9;
             flex-grow: 1;
         }
         
@@ -137,6 +151,7 @@
 
         #output_canvas { z-index: 10; }
         
+        /* note: Three.js was used for the 3D rendering of the skeleton */
         #threejs-container {
             width: 100%;
             height: 100%;
@@ -146,14 +161,16 @@
         }
         
         .controls {
+            grid-row: 2 / 3;
+            grid-column: 1 / -1;
             display: flex;
             gap: 10px;
             justify-content: center;
-            margin-top: 15px;
+            align-items: center;
         }
         
         button {
-            padding: 12px 24px;
+            padding: 12px 16px;
             font-family: 'Inter', sans-serif;
             font-weight: 500;
             font-size: 16px;
@@ -169,17 +186,20 @@
         button:disabled { background: #ccc; cursor: not-allowed; }
 
         .start-exercise-btn { background-color: var(--calm-teal); }
-        #stop-exercise-btn, #close-summary { background-color: var(--warm-coral); }
-        #mute-btn { background-color: #607d8b; }
+        .stop-btn, #close-summary { background-color: var(--warm-coral); }
+        .mute-btn, .toggle-btn { background-color: #607d8b; }
         
         .dynamic-tracking {
-            grid-row: 2 / 3;
-            grid-column: 1 / 3;
             background-color: #fff;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             padding: 20px;
+            grid-row: 3 / 4;
         }
+
+        #two-screen-layout .dynamic-tracking { grid-column: 1 / 3; }
+        #one-screen-layout .dynamic-tracking { grid-column: 1 / -1; }
+
 
         .tracking-grid {
             display: flex;
@@ -190,7 +210,7 @@
 
         .exercise-stats {
             display: grid;
-            grid-template-columns: repeat(4, 1fr); /* CHANGED: from 5 to 4 */
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             flex-grow: 1;
         }
@@ -248,12 +268,14 @@
             border-radius: 8px;
             padding: 10px;
         }
+
         .history-item {
             display: flex;
             justify-content: space-between;
             padding: 8px;
             border-bottom: 1px solid #ddd;
         }
+
         .history-item:last-child {
             border-bottom: none;
         }
@@ -263,6 +285,7 @@
             gap: 10px;
             margin-bottom: 15px;
         }
+
         .chart-tab {
             padding: 8px 16px;
             background-color: var(--light-gray);
@@ -270,6 +293,7 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
+
         .chart-tab.active {
             background-color: var(--calm-teal);
             color: white;
@@ -298,25 +322,30 @@
             padding-top: 20px;
             border-top: 1px solid #eee;
         }
+
         .rest-message {
             font-family: 'Nunito', sans-serif;
             font-size: 18px;
             color: var(--calm-teal);
         }
+
         .emoji-selection {
             display: flex;
             justify-content: center;
             gap: 20px;
             margin-top: 10px;
         }
+
         .emoji {
             font-size: 36px;
             cursor: pointer;
             transition: transform 0.2s, text-shadow 0.2s;
         }
+
         .emoji:hover {
             transform: scale(1.2);
         }
+
         .emoji.selected {
             transform: scale(1.3);
             text-shadow: 0 0 10px var(--soft-yellow);
@@ -331,7 +360,8 @@
     </style>
 </head>
 <body>
-    
+    <!-- Setup of the HTML structure, defining the UI of the prototype -->
+    <!-- Exercise Selection screen -->
     <div id="selection-screen" class="screen active">
         <h1>Physiotherapy Assistant</h1>
         <div class="selection-container">
@@ -376,20 +406,17 @@
         </div>
     </div>
 
+    <!-- Exercise Screen -->
     <div id="exercise-screen" class="screen">
-        <div class="main-container">
+        <!-- Two Screen Layout -->
+        <div id="two-screen-layout" class="main-container">
             <div class="camera-view">
                 <h2>Camera View</h2>
                 <div class="video-container">
                     <video id="input_video" playsinline></video>
                     <canvas id="output_canvas"></canvas>
                 </div>
-                 <div class="controls">
-                    <button id="stop-exercise-btn" disabled>Stop Exercise</button>
-                    <button id="mute-btn">🔊 Mute</button>
-                </div>
             </div>
-
             <div class="skeleton-view">
                 <h2>3D Skeleton View</h2>
                 <div id="threejs-container"></div>
@@ -398,20 +425,55 @@
                     <strong>Detected Joints:</strong> <span id="joint-count">0</span>/33
                 </div>
             </div>
-
+            <div class="controls">
+                <button id="stop-exercise-btn" class="stop-btn" disabled="">Stop Exercise</button>
+                <button id="mute-btn" class="mute-btn">🔊 Mute</button>
+                <button id="toggle-view-btn" class="toggle-btn">Toggle View</button>
+            </div>
             <div class="dynamic-tracking">
-                <div id="exercise-phase" class="phase-indicator">Ready to start exercise</div>
+                <div id="exercise-phase-two-screen" class="phase-indicator">Ready to start exercise</div>
                 <div class="tracking-grid">
                     <div class="exercise-stats">
-                        <div class="stat-box"><div class="stat-value" id="set-count">0</div><div class="stat-label">Sets</div></div>
-                        <div class="stat-box"><div class="stat-value" id="rep-count">0 / 5</div><div class="stat-label">Reps / Goal</div></div>
-                        <div class="stat-box"><div class="stat-value" id="current-quality">--</div><div class="stat-label">Quality</div></div>
-                        <div class="stat-box"><div class="stat-value" id="exercise-time">0:00</div><div class="stat-label">Time</div></div>
+                        <div class="stat-box"><div class="stat-value" id="set-count-two-screen">0</div><div class="stat-label">Sets</div></div>
+                        <div class="stat-box"><div class="stat-value" id="rep-count-two-screen">0 / 5</div><div class="stat-label">Reps / Goal</div></div>
+                        <div class="stat-box"><div class="stat-value" id="current-quality-two-screen">--</div><div class="stat-label">Quality</div></div>
+                        <div class="stat-box"><div class="stat-value" id="exercise-time-two-screen">0:00</div><div class="stat-label">Time</div></div>
                     </div>
                      <div class="feedback-container">
                         <h3>Real-time Feedback</h3>
-                        <div id="feedback-text">Start an exercise to see real-time form feedback.</div>
-                        <div id="rest-timer"></div>
+                        <div id="feedback-text-two-screen">Start an exercise to see real-time form feedback.</div>
+                        <div id="rest-timer-two-screen"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- One Screen Layout -->
+        <div id="one-screen-layout" class="main-container">
+            <div class="camera-view">
+                <h2>Camera View</h2>
+                <div class="video-container">
+                    <!-- Video and canvas are shared, no need to duplicate -->
+                </div>
+            </div>
+            <div class="controls">
+                <button id="stop-exercise-btn-one-screen" class="stop-btn" disabled="">Stop Exercise</button>
+                <button id="mute-btn-one-screen" class="mute-btn">🔊 Mute</button>
+                <button id="toggle-view-btn-one-screen" class="toggle-btn">Toggle View</button>
+            </div>
+            <div class="dynamic-tracking">
+                 <div id="exercise-phase-one-screen" class="phase-indicator">Ready to start exercise</div>
+                 <div class="tracking-grid">
+                     <div class="exercise-stats">
+                         <div class="stat-box"><div class="stat-value" id="set-count-one-screen">0</div><div class="stat-label">Sets</div></div>
+                        <div class="stat-box"><div class="stat-value" id="rep-count-one-screen">0 / 5</div><div class="stat-label">Reps / Goal</div></div>
+                        <div class="stat-box"><div class="stat-value" id="current-quality-one-screen">--</div><div class="stat-label">Quality</div></div>
+                        <div class="stat-box"><div class="stat-value" id="exercise-time-one-screen">0:00</div><div class="stat-label">Time</div></div>
+                    </div>
+                     <div class="feedback-container">
+                        <h3>Real-time Feedback</h3>
+                        <div id="feedback-text-one-screen">Start an exercise to see real-time form feedback.</div>
+                        <div id="rest-timer-one-screen"></div>
                     </div>
                 </div>
             </div>
@@ -446,41 +508,45 @@
     <div id="motivational-popup"></div>
 
     <script>
+        /* Main logic using JS starts here */
         // --- FRAMEWORK GLOBALS ---
         let pose, videoElement, scene, renderer, skeleton, camera;
         let isCameraOn = false;
         let cameraLoopId = null;
-        let progressChart = null;
+        let progressChart = null; // Note that Chart.js is used for the statistic graphics
+        let isTwoScreenMode = true;
 
         // --- EXERCISE ENGINE GLOBALS ---
+        /* Some of the less self descriptive variables are explained here */
         let isExerciseActive = false;
         let activeExercise = null; 
         let exerciseStartTime = null;
         let repCount = 0;
-        let qualityScores = [];
-        let currentPhase = null;
+        let qualityScores = []; // An array to store the quality score of each movement phase
+        let currentPhase = null; // The current part of the movement (e.g., 'standing', 'bottom' for a squat)
         let lastPhase = null;
         let setCount = 1;
         const repGoal = 5;
-        let lastRepTime = 0;
-        const REP_COOLDOWN = 1000;
+        let lastRepTime = 0; // Timestamp of the last rep, to prevent counting a single movement multiple times
+        const REP_COOLDOWN = 1000; // Cooldown in ms
         let isResting = false;
         let restTimerId = null;
 
         // --- AUDIO FEEDBACK GLOBALS ---
-        const synth = window.speechSynthesis;
+        const synth = window.speechSynthesis; // The browser's built-in speech engine
         let isMuted = false;
-        let lastSpokenMsg = '';
-        let speechUtterance = new SpeechSynthesisUtterance();
-        let lastSpokenTime = 0;
-        const SPEECH_COOLDOWN = 5000;
+        let lastSpokenMsg = ''; // The last message spoken, to avoid repetition
+        let speechUtterance = new SpeechSynthesisUtterance(); // The object that holds the text to be spoken.
+        let lastSpokenTime = 0; // Timestamp of the last spoken message, for cooldown.
+        const SPEECH_COOLDOWN = 5000; // Cooldown in ms
 
         // --- EXERCISE LIBRARY ---
+        /* Define exercise rules and logic for each available exercise */
         const EXERCISE_LIBRARY = {
             'squat': {
                 name: 'Squat',
-                repSequence: ['standing', 'bottom', 'standing'],
-                phases: {
+                repSequence: ['standing', 'bottom', 'standing'], // The required order of phases for one rep
+                phases: { // Defines the different parts of the movement
                     'standing': {
                         thresholds: { rightKnee: 160, leftKnee: 160 },
                         condition: (angles, thresholds) => angles.rightKnee > thresholds.rightKnee && angles.leftKnee > thresholds.leftKnee,
@@ -492,12 +558,14 @@
                         feedback: "Good depth!"
                     }
                 },
+                // Calculates a quality score based on posture and symmetry
                 getQuality: (pose) => {
                     const { landmarks, angles } = pose;
                     const posture = 100 - (Math.abs(landmarks[11].x - landmarks[23].x) * 200);
                     const symmetry = 100 - Math.abs(angles.leftKnee - angles.rightKnee);
                     return Math.max(0, (posture * 0.5) + (symmetry * 0.5));
                 },
+                // Generates real-time feedback text based on quality and angles
                 getFeedback: (quality, angles) => {
                     let feedback = [];
                     if (quality < 70) feedback.push("Keep your weight balanced and back straight.");
@@ -537,6 +605,9 @@
         const POSE_CONNECTIONS = [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [23, 24], [11, 23], [12, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
         
         // --- INITIALIZATION ---
+        /* All important initial values and calls are made here */
+        /* Initalise Three.js used for the 3D rendering of the skeleton */
+        /* Just like most 3D engines camera and light need to be setup */
         function initThreeJS() {
             const container = document.getElementById('threejs-container');
             scene = new THREE.Scene();
@@ -555,6 +626,7 @@
             skeleton = new THREE.Group();
             scene.add(skeleton);
 
+            /* Ability to rotate 3D model - was mostly used during debugging */
             let mouseDown = false, mouseX = 0, mouseY = 0;
             container.addEventListener('mousedown', (e) => { mouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
             container.addEventListener('mousemove', (e) => {
@@ -576,6 +648,8 @@
             });
         }
 
+        /* Initialise MediaPipe used for AI detection/tracking of the body */
+        /* This function is async because loading the model files takes time */
         async function initMediaPipe() {
             pose = new Pose({ 
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` 
@@ -591,12 +665,16 @@
         }
 
         // --- SINGLE ANIMATION LOOP ---
+        /* Starts the animation loop for the 3D scene */
         function renderLoop() {
             requestAnimationFrame(renderLoop);
-            renderer.render(scene, camera);
+            if(renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
         }
 
         // --- DEDICATED CAMERA/AI LOOP ---
+        /* Starts the loop which continuously sends frames from the camera to the MediaPipe model */
         async function cameraLoop() {
             if (isCameraOn && videoElement && videoElement.readyState >= 4) {
                 await pose.send({image: videoElement});
@@ -605,6 +683,10 @@
         }
 
         // --- CORE PROCESSING LOGIC ---
+        /* Can be though of as the "cental command center" - gest activated every time the MediaPipe AI model successfully analyzes a frame from the camera */
+        /* roughly follows these steps:
+            receive data, prepare canvas, check if person is detected, analyze pose (if a person was detected), update visual
+        */
         function onResults(results) {
             const canvasCtx = document.getElementById('output_canvas').getContext('2d');
             canvasCtx.save();
@@ -619,21 +701,33 @@
                     quality = processExercise(results.poseLandmarks, angles);
                 }
                 
-                updateSkeleton(results.poseLandmarks, quality);
-                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#3BA99C', lineWidth: 3});
-                drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#F38181', lineWidth: 1, radius: 4});
+                // Only update the 3D skeleton if it's visible
+                if (isTwoScreenMode) {
+                    updateSkeleton(results.poseLandmarks, quality);
+                }
+                
+                // Draw the 2D skeleton overlay on the camera view
+                const boneColor = getQualityColorForCanvas(quality);
+                const jointColor = '#FFFFFF';
+
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: boneColor, lineWidth: 4});
+                drawLandmarks(canvasCtx, results.poseLandmarks, {color: jointColor, fillColor: boneColor, lineWidth: 2, radius: 5});
                 drawAngleIndicatorsOnCanvas(angles, results.poseLandmarks, canvasCtx);
                 
                 document.getElementById('joint-count').textContent = results.poseLandmarks.length;
                 document.getElementById('status').textContent = 'Pose detected';
             } else {
+                // If no pose is detected, clear the UI
                 document.getElementById('joint-count').textContent = '0';
                 document.getElementById('status').textContent = 'No pose detected';
-                updateSkeleton(null, null);
+                if (isTwoScreenMode) {
+                    updateSkeleton(null, null);
+                }
             }
             canvasCtx.restore();
         }
 
+        /* Analyzes the pose to count reps and calculate quality */
         function processExercise(landmarks, angles) {
             const now = Date.now();
             let newPhase = null;
@@ -645,11 +739,13 @@
                 }
             }
 
+            // If the phase has changed, check if a rep has been completed
             if (newPhase && newPhase !== currentPhase) {
                 lastPhase = currentPhase;
                 currentPhase = newPhase;
                 updatePhaseDisplay(currentPhase);
 
+                // A rep is counted when the user moves through the correct sequence of phases
                 if (lastPhase === activeExercise.repSequence[1] && currentPhase === activeExercise.repSequence[2] && (now - lastRepTime > REP_COOLDOWN)) {
                     lastRepTime = now;
                     repCount++;
@@ -668,25 +764,38 @@
                     }
                     
                     updateRepAndSetDisplay();
-                    updateAverageQuality();
                 }
             }
 
             const quality = activeExercise.getQuality({landmarks, angles});
             if (quality) {
-                document.getElementById('current-quality').textContent = `${quality.toFixed(0)}%`;
+                updateQualityDisplay(quality);
                 qualityScores.push(quality);
                 const feedback = activeExercise.getFeedback(quality, angles);
-                document.getElementById('feedback-text').textContent = feedback;
+                updateFeedbackDisplay(feedback);
                 speak(feedback);
             }
             return quality;
         }
+        
+        /* Calculate and display quality and feedback */
+        function updateQualityDisplay(quality) {
+             document.getElementById('current-quality-one-screen').textContent = `${quality.toFixed(0)}%`;
+             document.getElementById('current-quality-two-screen').textContent = `${quality.toFixed(0)}%`;
+        }
+
+        function updateFeedbackDisplay(feedback) {
+            document.getElementById('feedback-text-one-screen').textContent = feedback;
+            document.getElementById('feedback-text-two-screen').textContent = feedback;
+        }
+
 
         // --- UTILITY & UI FUNCTIONS ---
+        /* Speak/Audio functionality using Web Speech API (which is provided by the browser) */
         function speak(text, force = false) {
             if (isMuted || !text) return;
             const now = Date.now();
+            /* Clean up text */
             const plainText = text.replace(/<[^>]*>?/gm, '');
 
             if (force) {
@@ -706,6 +815,7 @@
             }
         }
         
+        /* Manage popups */
         function showMotivationalPopup(message) {
             const popup = document.getElementById('motivational-popup');
             if (!popup) return;
@@ -721,6 +831,8 @@
             }, 3000);
         }
 
+        /* Calculate joint angles using x,y,z coordinates */
+        /* Note that this system uses a right-handed coordinate system - very important for technical details */
         function calculateJointAngles(landmarks) {
             if (!landmarks || landmarks.length < 33) return {};
             const p = landmarks;
@@ -743,16 +855,22 @@
             return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
         }
 
+        /* Gets called when an exercise is started - note the async keyword */
+        /* Switches screens and initialises all important values */
         async function startExercise(exerciseKey) {
             if (!EXERCISE_LIBRARY[exerciseKey]) return;
             
             document.getElementById('selection-screen').classList.remove('active');
             document.getElementById('exercise-screen').classList.add('active');
             
-            const container = document.getElementById('threejs-container');
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
+            if (isTwoScreenMode) {
+                 const container = document.getElementById('threejs-container');
+                 if(renderer) {
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                 }
+            }
 
             await startCamera();
 
@@ -765,8 +883,9 @@
             currentPhase = activeExercise.repSequence[0];
             
             updateRepAndSetDisplay();
-            document.getElementById('current-quality').textContent = '--';
+            updateQualityDisplay({toFixed: () => '--'});
             document.getElementById('stop-exercise-btn').disabled = false;
+            document.getElementById('stop-exercise-btn-one-screen').disabled = false;
             updatePhaseDisplay(currentPhase);
             speak(`Starting ${activeExercise.name} exercise. Goal is ${repGoal} reps.`);
         }
@@ -779,15 +898,19 @@
         }
 
         function resetExerciseState() {
-            document.getElementById('exercise-phase').textContent = 'Select a new exercise.';
-            document.getElementById('feedback-text').textContent = 'Great work! Select a new exercise.';
+            updatePhaseDisplay('Select a new exercise.');
+            updateFeedbackDisplay('Great work! Select a new exercise.');
             
-            document.getElementById('set-count').textContent = '0';
-            document.getElementById('rep-count').textContent = `0 / ${repGoal}`;
-            document.getElementById('current-quality').textContent = '--';
-            document.getElementById('exercise-time').textContent = '0:00';
+            document.getElementById('set-count-one-screen').textContent = '0';
+            document.getElementById('set-count-two-screen').textContent = '0';
+            document.getElementById('rep-count-one-screen').textContent = `0 / ${repGoal}`;
+            document.getElementById('rep-count-two-screen').textContent = `0 / ${repGoal}`;
+            updateQualityDisplay({toFixed: () => '--'});
+            document.getElementById('exercise-time-one-screen').textContent = '0:00';
+            document.getElementById('exercise-time-two-screen').textContent = '0:00';
         }
 
+        /* Pop-up showing the exercise summary and statistics */
         function showSummary() {
             const totalReps = ((setCount - 1) * repGoal) + repCount;
             const avgQuality = qualityScores.length > 0 ? (qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length).toFixed(0) + '%' : 'N/A';
@@ -805,31 +928,36 @@
             saveSession(activeExercise.name, setCount - 1, totalReps, avgQuality);
         }
 
+        /* Updates the phase indicator text */
         function updatePhaseDisplay(phase) {
-            const phaseElement = document.getElementById('exercise-phase');
-            if (phaseElement && activeExercise && activeExercise.phases[phase]) {
-                phaseElement.textContent = activeExercise.phases[phase].feedback;
+            const phaseElementOne = document.getElementById('exercise-phase-one-screen');
+            const phaseElementTwo = document.getElementById('exercise-phase-two-screen');
+            
+            if (activeExercise && activeExercise.phases[phase]) {
+                const text = activeExercise.phases[phase].feedback;
+                if(phaseElementOne) phaseElementOne.textContent = text;
+                if(phaseElementTwo) phaseElementTwo.textContent = text;
+            } else if (typeof phase === 'string') {
+                 if(phaseElementOne) phaseElementOne.textContent = phase;
+                 if(phaseElementTwo) phaseElementTwo.textContent = phase;
             }
         }
         
         function updateRepAndSetDisplay() {
-            document.getElementById('rep-count').textContent = `${repCount} / ${repGoal}`;
-            document.getElementById('set-count').textContent = setCount;
+            document.getElementById('rep-count-one-screen').textContent = `${repCount} / ${repGoal}`;
+            document.getElementById('rep-count-two-screen').textContent = `${repCount} / ${repGoal}`;
+            document.getElementById('set-count-one-screen').textContent = setCount;
+            document.getElementById('set-count-two-screen').textContent = setCount;
         }
 
-        function updateAverageQuality() {
-            if (qualityScores.length === 0) return;
-            const recentScores = qualityScores.slice(-50);
-            const avg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
-            document.getElementById('avg-quality').textContent = `${avg.toFixed(0)}%`;
-        }
-        
         setInterval(() => {
             if (isExerciseActive) {
                 const elapsed = Math.floor((Date.now() - exerciseStartTime) / 1000);
                 const minutes = Math.floor(elapsed / 60);
                 const seconds = elapsed % 60;
-                document.getElementById('exercise-time').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                document.getElementById('exercise-time-one-screen').textContent = timeString;
+                document.getElementById('exercise-time-two-screen').textContent = timeString;
             }
         }, 1000);
 
@@ -843,6 +971,27 @@
             } else {
                 return yellow.lerp(green, (quality - 50) / 50);
             }
+        }
+
+        function getQualityColorForCanvas(quality) {
+            if (quality === null || quality === undefined) return '#3BA99C'; // Default calm teal
+
+            quality = Math.max(0, Math.min(100, quality));
+            let r, g;
+
+            if (quality < 50) {
+                // Red (255, 0, 0) to Yellow (255, 255, 0)
+                r = 255;
+                g = Math.round(255 * (quality / 50));
+            } else {
+                // Yellow (255, 255, 0) to Green (0, 255, 0)
+                r = Math.round(255 * (2 - quality / 50));
+                g = 255;
+            }
+            const b = 0;
+
+            const toHex = (c) => c.toString(16).padStart(2, '0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
         }
 
         function updateSkeleton(landmarks, quality) {
@@ -897,10 +1046,16 @@
             ctx.restore();
         }
 
+        /* Start camera stream - not that permissions need to be granted / webbrowser settings need to allow for the use of the camera */
         async function startCamera() {
             if (isCameraOn) return;
             try {
                 videoElement = document.getElementById('input_video');
+                // Move video element to the current view's container
+                const currentVideoContainer = document.querySelector(isTwoScreenMode ? '#two-screen-layout .video-container' : '#one-screen-layout .video-container');
+                currentVideoContainer.appendChild(videoElement);
+                currentVideoContainer.appendChild(document.getElementById('output_canvas'));
+                
                 document.getElementById('output_canvas').width = 640;
                 document.getElementById('output_canvas').height = 480;
                 document.getElementById('status').textContent = 'Requesting camera...';
@@ -918,7 +1073,7 @@
         }
         
         function stopCamera() {
-            if (videoElement.srcObject) {
+            if (videoElement && videoElement.srcObject) {
                 videoElement.srcObject.getTracks().forEach(track => track.stop());
                 videoElement.srcObject = null;
             }
@@ -928,6 +1083,7 @@
         }
 
         // --- Session History Functions ---
+        /* Save sessions info in the local storage of the web browser - can be accessed even after closing the application */
         function saveSession(exerciseName, sets, reps, quality) {
             const session = {
                 date: new Date().toLocaleString(),
@@ -1033,23 +1189,60 @@
         function startRestTimer(duration) {
             isResting = true;
             let timer = duration;
-            const timerEl = document.getElementById('rest-timer');
-            timerEl.textContent = `Rest: ${timer}s`;
+            const timerElOne = document.getElementById('rest-timer-one-screen');
+            const timerElTwo = document.getElementById('rest-timer-two-screen');
+
+            const updateTimerText = () => {
+                const text = `Rest: ${timer}s`;
+                if(timerElOne) timerElOne.textContent = text;
+                if(timerElTwo) timerElTwo.textContent = text;
+            };
+            
+            updateTimerText();
             speak(`Rest for ${duration} seconds.`);
 
             restTimerId = setInterval(() => {
                 timer--;
-                timerEl.textContent = `Rest: ${timer}s`;
+                updateTimerText();
                 if (timer <= 0) {
                     clearInterval(restTimerId);
                     isResting = false;
-                    timerEl.textContent = '';
+                    if(timerElOne) timerElOne.textContent = '';
+                    if(timerElTwo) timerElTwo.textContent = '';
                     speak("Time to start the next set!");
                 }
             }, 1000);
         }
+        
+        function toggleView() {
+            isTwoScreenMode = !isTwoScreenMode;
+            const twoScreenLayout = document.getElementById('two-screen-layout');
+            const oneScreenLayout = document.getElementById('one-screen-layout');
+            
+            if (isTwoScreenMode) {
+                twoScreenLayout.style.display = 'grid';
+                oneScreenLayout.style.display = 'none';
+            } else {
+                twoScreenLayout.style.display = 'none';
+                oneScreenLayout.style.display = 'grid';
+            }
+            // Move video elements to the correct container
+             const currentVideoContainer = document.querySelector(isTwoScreenMode ? '#two-screen-layout .video-container' : '#one-screen-layout .video-container');
+             currentVideoContainer.appendChild(videoElement);
+             currentVideoContainer.appendChild(document.getElementById('output_canvas'));
+
+             if(isTwoScreenMode && renderer){
+                 setTimeout(() => {
+                     const container = document.getElementById('threejs-container');
+                     renderer.setSize(container.clientWidth, container.clientHeight);
+                     camera.aspect = container.clientWidth / container.clientHeight;
+                     camera.updateProjectionMatrix();
+                 }, 0);
+             }
+        }
 
         // --- EVENT LISTENERS ---
+        /* Manage button clicks */
         document.querySelectorAll('.start-exercise-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 const exerciseKey = e.target.dataset.exercise;
@@ -1058,14 +1251,27 @@
         });
 
         document.getElementById('stop-exercise-btn').addEventListener('click', stopExercise);
-        document.getElementById('mute-btn').addEventListener('click', () => {
+        document.getElementById('stop-exercise-btn-one-screen').addEventListener('click', stopExercise);
+
+        document.getElementById('toggle-view-btn').addEventListener('click', toggleView);
+        document.getElementById('toggle-view-btn-one-screen').addEventListener('click', toggleView);
+
+        /* Mute/Unmute voice assistant */
+        const muteHandler = () => {
             isMuted = !isMuted;
-            const muteBtn = document.getElementById('mute-btn');
-            muteBtn.textContent = isMuted ? '🔇 Unmute' : '🔊 Mute';
+            const muteBtn1 = document.getElementById('mute-btn');
+            const muteBtn2 = document.getElementById('mute-btn-one-screen');
+            const text = isMuted ? '🔇 Unmute' : '🔊 Mute';
+            muteBtn1.textContent = text;
+            muteBtn2.textContent = text;
             if (isMuted && synth.speaking) {
                 synth.cancel();
             }
-        });
+        };
+        document.getElementById('mute-btn').addEventListener('click', muteHandler);
+        document.getElementById('mute-btn-one-screen').addEventListener('click', muteHandler);
+
+        /* Close button on the summary modal */
         document.getElementById('close-summary').addEventListener('click', () => {
             document.getElementById('summary-modal').style.display = 'none';
             resetExerciseState();
@@ -1073,6 +1279,7 @@
             document.getElementById('exercise-screen').classList.remove('active');
         });
         
+        /* Tabs for switching between exercise charts */
         document.querySelectorAll('.chart-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
@@ -1082,6 +1289,7 @@
             });
         });
         
+        /* Emoji feedback buttons on the summary modal */
         document.querySelectorAll('.emoji').forEach(emoji => {
             emoji.addEventListener('click', (e) => {
                 document.querySelectorAll('.emoji').forEach(el => el.classList.remove('selected'));
@@ -1090,6 +1298,7 @@
         });
         
         // --- DOM LOADED ---
+        /* fired as soon as the HTML gets loaded */
         document.addEventListener('DOMContentLoaded', async () => {
             initThreeJS();
             try {
@@ -1105,3 +1314,7 @@
     </script>
 </body>
 </html>
+
+
+
+
